@@ -36,7 +36,7 @@ coverage where automated coverage is feasible.
 | Requirement | Area | Phase | Verification |
 |---|---|---|---|
 | Weekly grid: days horizontal, time vertical, 30-min slots | web custom grid | 08 | Component test on slot generation |
-| Occupied slots visible to everyone | api schedule query, web grid render | 05, 08 | Integration test (unauthenticated-to-own-room visibility of other users' bookings) |
+| Occupied slots visible to everyone | api schedule query, web grid render | 05, 08 | Integration test (User B, authenticated, sees User A's booking on a shared room schedule) |
 | Occupied slot shows title + author | web grid render | 08 | Component test |
 | Previous/next week navigation | web schedule URL state | 08 | Component/E2E test |
 | Grid implemented by the project, no ready-made scheduler library | web custom grid | 08 | Code review checklist item (no FullCalendar/RBC/DayPilot/Scheduler dependency) |

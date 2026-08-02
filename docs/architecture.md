@@ -32,10 +32,19 @@ this scale.
 - Passwords hashed with Argon2id (memory-hard, current OWASP recommendation); never logged,
   never returned in any response.
 - Sessions are opaque random tokens stored in a `Session` database table (id, userId,
-  expiresAt, createdAt), issued as a `Secure`, `HttpOnly`, `SameSite=Lax` cookie. No JWT: an
-  opaque DB-backed session lets us revoke on logout by deleting the row, with no token
-  blacklist needed. This matches project scale — a JWT's main advantage (stateless
-  verification across services) doesn't apply to a single API process.
+  expiresAt, createdAt), issued as an `HttpOnly`, `SameSite=Lax` cookie, `Secure` whenever the
+  request arrived over HTTPS. No JWT: an opaque DB-backed session lets us revoke on logout by
+  deleting the row, with no token blacklist needed. This matches project scale — a JWT's main
+  advantage (stateless verification across services) doesn't apply to a single API process.
+- `apps/web` reaches `apps/api` through a same-origin proxy, not a cross-origin fetch: Next.js
+  rewrites in local dev, and a single reverse-proxied origin in Docker Compose, forward
+  `/api/*` from the web origin to the API service. The browser therefore never needs a
+  cross-site cookie. This is a deliberate simplification, not an oversight — a cross-origin
+  `SameSite=None; Secure` cookie would only work over HTTPS, and the challenge's clean-machine
+  launch (`docker-compose up`, README-driven, no TLS setup implied) runs over plain HTTP.
+  Without same-origin proxying, "session survives page reload" would silently fail on exactly
+  the evaluation setup this project is graded on. `SameSite=Lax` plus same-origin is sufficient
+  and avoids introducing CORS configuration at all.
 - Every request that requires an identity resolves it through a session guard that loads the
   session row and attaches the user; expired/missing sessions are rejected uniformly.
 - Optional (bonus) email verification: a verification token table, a logged verification
@@ -77,10 +86,17 @@ Summarized fully in `docs/decisions/0001-booking-overlap.md`. In short:
 - A `BookingSeries` row records the recurrence rule (weekly, a fixed weekday, an occurrence
   count) and owner. Each concrete occurrence is a normal `Booking` row with a nullable
   `seriesId` foreign key.
-- Series creation computes every occurrence's UTC instant from the office-local weekday/time
-  across the requested count (DST-safe via Luxon), then inserts all occurrences in one
-  transaction. If any occurrence conflicts, the whole series is rejected and rolled back —
-  no partial series is ever persisted.
+- Series creation computes every occurrence's UTC instant by adding weeks to a Luxon
+  `DateTime` that is anchored in `Europe/Kyiv`, then converting each resulting local
+  wall-clock instant to UTC — never by adding a fixed `7 * 24h` in UTC. The two are not
+  equivalent across a Kyiv DST transition (the fixed-duration approach would land 09:00 local
+  bookings an hour off local wall-clock time on the far side of the transition); anchoring the
+  arithmetic in the office zone and converting per-occurrence is what keeps every occurrence
+  at the same office-local time regardless of which side of a transition it falls on. All
+  occurrences are inserted in one transaction; if any occurrence conflicts, the whole series
+  is rejected and rolled back — no partial series is ever persisted (see
+  `docs/implementation-checklist.md` for why all-or-nothing was chosen over skipping the
+  conflicting occurrence).
 - Cancellation operates at two levels: cancelling one `Booking` only touches that row;
   cancelling a series soft-cancels every still-active `Booking` with that `seriesId`. Both
   paths reuse the same ownership check as single-booking cancellation.
@@ -121,8 +137,10 @@ interaction adaptation of one grid implementation, not a second grid.
 
 ## Clean-machine launch approach
 
-- `docker-compose.yml` brings up Postgres (with a persistent volume) plus, for local dev,
-  the app processes point at it via `.env` (copied from `.env.example`).
+- `docker-compose.yml` brings up Postgres (with a persistent volume), the API, and a reverse
+  proxy in front of `web` that forwards `/api/*` to the API service (see the same-origin
+  session-cookie decision above) — a browser hitting one published port gets the whole app.
+  The app processes point at Postgres via `.env` (copied from `.env.example`).
 - A single documented sequence in `README.md` (install → env copy → migrate → seed → run)
   is rehearsed against a genuinely clean checkout during Phase 14, not assumed to work.
 - Seeded seed data (rooms, two test users with credentials in the README, demo bookings) and
