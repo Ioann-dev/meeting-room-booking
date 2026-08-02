@@ -1,0 +1,130 @@
+# Architecture
+
+Concise engineering contract for the meeting-room booking challenge. Proportionate to a
+small, single-team project — not an enterprise reference architecture.
+
+## Monorepo boundaries
+
+npm workspaces, three packages:
+
+- **`apps/web`** — Next.js + React, strict TypeScript. Owns all rendering, client-side
+  routing, and browser-timezone detection. Talks to `apps/api` over HTTP/JSON only; never
+  imports Prisma or server-only code.
+- **`apps/api`** — NestJS, strict TypeScript. Owns every business rule: validation, auth,
+  office-hours enforcement, overlap prevention, authorization. The only process with a
+  database connection.
+- **`packages/shared`** — framework-free TypeScript: booking domain types, validation
+  constants (slot size, min/max duration, title length, office hours), and pure time-math
+  helpers (slot alignment, interval overlap predicate). Consumed by both apps so a rule such
+  as "duration is 30 minutes to 4 hours" is defined once and can't drift between client-side
+  hinting and server-side enforcement.
+
+No package reaches into another's internals; `web` and `api` only share `packages/shared`
+exports. This keeps the boundary a normal import graph — no generic repository layer, no
+internal message bus, no service mesh. A three-package split is already the minimum needed
+to avoid duplicating domain rules between client and server; nothing more is warranted at
+this scale.
+
+## Authentication / session approach
+
+- Registration: name, email, password. Email is canonicalized (trim + lowercase) before
+  the uniqueness check and before storage, so `Ivan@x.com` and `ivan@x.com` collide.
+- Passwords hashed with Argon2id (memory-hard, current OWASP recommendation); never logged,
+  never returned in any response.
+- Sessions are opaque random tokens stored in a `Session` database table (id, userId,
+  expiresAt, createdAt), issued as a `Secure`, `HttpOnly`, `SameSite=Lax` cookie. No JWT: an
+  opaque DB-backed session lets us revoke on logout by deleting the row, with no token
+  blacklist needed. This matches project scale — a JWT's main advantage (stateless
+  verification across services) doesn't apply to a single API process.
+- Every request that requires an identity resolves it through a session guard that loads the
+  session row and attaches the user; expired/missing sessions are rejected uniformly.
+- Optional (bonus) email verification: a verification token table, a logged verification
+  link (no real SMTP required in development), and a guard on booking creation that rejects
+  unverified users.
+
+## UTC and Europe/Kyiv time-zone strategy
+
+- All instants are stored as UTC (`timestamptz` in Postgres via Prisma). The database and
+  API never reason in a local offset.
+- The office zone (`Europe/Kyiv`) is a single named constant in `packages/shared`, used only
+  for two purposes: (1) converting a user-submitted local date/time into a UTC instant when
+  validating "is this inside 09:00–19:00", and (2) rendering the office-zone badge in the UI.
+- All time-zone conversions go through Luxon with an IANA zone identifier
+  (`Europe/Kyiv`), never a hardcoded UTC+2/+3 offset — this is what keeps DST transitions
+  (Kyiv observes EET/EEST) correct without special-casing.
+- The browser's IANA zone (`Intl.DateTimeFormat().resolvedOptions().timeZone`) drives all
+  display formatting on `web`. The server never needs to know the viewer's zone; it only
+  emits UTC instants, and `web` converts them for display.
+- Working-hours validation always re-derives the Kyiv wall-clock time from the UTC instant
+  being validated, server-side. A client cannot smuggle a browser-zone bypass of office
+  hours because the server does not trust client-labeled local times — it only trusts the
+  UTC instant plus the fixed office zone.
+
+## Booking overlap and race-safety strategy
+
+Summarized fully in `docs/decisions/0001-booking-overlap.md`. In short:
+
+- Intervals are half-open `[start, end)`; adjacency is valid by construction because two
+  half-open intervals `[a,b)` and `[b,c)` do not intersect.
+- Application code performs the first overlap check for a fast, user-facing error message.
+- The database is the final authority: an exclusion constraint (`EXCLUDE USING gist`) over
+  `(room_id, tstzrange(start_at, end_at, '[)'), status)` restricted to active bookings makes
+  a genuine overlap impossible to persist, even under concurrent requests, without relying
+  on application-level locking.
+
+## Recurring-booking model (bonus)
+
+- A `BookingSeries` row records the recurrence rule (weekly, a fixed weekday, an occurrence
+  count) and owner. Each concrete occurrence is a normal `Booking` row with a nullable
+  `seriesId` foreign key.
+- Series creation computes every occurrence's UTC instant from the office-local weekday/time
+  across the requested count (DST-safe via Luxon), then inserts all occurrences in one
+  transaction. If any occurrence conflicts, the whole series is rejected and rolled back —
+  no partial series is ever persisted.
+- Cancellation operates at two levels: cancelling one `Booking` only touches that row;
+  cancelling a series soft-cancels every still-active `Booking` with that `seriesId`. Both
+  paths reuse the same ownership check as single-booking cancellation.
+
+## Notification model (bonus)
+
+- A lightweight scheduled check (not a generic event bus) looks for bookings ending within
+  `NOTIFY_BEFORE_MINUTES` whose room has an immediately-following active booking, and that
+  have not yet been notified.
+- A `notifiedAt` column on the relevant booking makes the check idempotent: once set, the
+  same booking is never notified twice, and cancelling either the ending or the following
+  booking removes it from the candidate set before the check fires.
+- Delivery is in-app only (bell + toast on `web`), backed by a `Notification` row the client
+  polls or fetches on load — no external push infrastructure.
+
+## Test pyramid
+
+- **Unit** (`packages/shared`, `apps/api` services): interval overlap/adjacency matrix,
+  slot-alignment and duration validators, Kyiv DST conversion cases, password/email
+  canonicalization. Fast, no database.
+- **Integration** (`apps/api`, Supertest against a real Postgres test database): auth flow,
+  booking creation/cancellation/authorization, concurrent-request race behavior, recurrence
+  series creation and rollback, notification idempotency.
+- **Component** (`apps/web`): form validation display, grid slot rendering, loading/empty/
+  error states, ownership styling.
+- **E2E smoke** (Playwright, a handful of flows): login → book → see it on the grid → cancel;
+  My Bookings deep link into the correct week. Kept small — this is a smoke layer, not a
+  parallel copy of the integration suite.
+
+## Mobile calendar approach
+
+The same custom weekly grid is used at every width; there is no separate mobile calendar
+component (that would reintroduce exactly the "ready-made scheduler" problem the challenge
+forbids, just self-built twice). Below a breakpoint the grid switches to a single active day
+with day-chip navigation and horizontal snap-scrolling between days, sticky time rail, and
+the booking form presented as a bottom sheet instead of a centered dialog. This is layout and
+interaction adaptation of one grid implementation, not a second grid.
+
+## Clean-machine launch approach
+
+- `docker-compose.yml` brings up Postgres (with a persistent volume) plus, for local dev,
+  the app processes point at it via `.env` (copied from `.env.example`).
+- A single documented sequence in `README.md` (install → env copy → migrate → seed → run)
+  is rehearsed against a genuinely clean checkout during Phase 14, not assumed to work.
+- Seeded seed data (rooms, two test users with credentials in the README, demo bookings) and
+  Prisma migrations are the only prerequisites beyond the documented commands — no manual
+  database setup steps outside what the README states.
