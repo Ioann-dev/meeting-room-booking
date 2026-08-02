@@ -1,0 +1,18 @@
+# dependencies
+**/node_modules
+
+# builds
+**/dist
+**/.next
+**/out
+**/coverage
+**/*.tsbuildinfo
+
+# env files (keep committed examples)
+**/.env
+**/.env.*
+!**/.env.example
+
+# editor/OS
+.DS_Store
+*.pem

@@ -1,0 +1,15 @@
+node_modules
+dist
+.next
+out
+coverage
+*.tsbuildinfo
+package-lock.json
+next-env.d.ts
+
+# specification/instruction source documents — participant-facing wording
+# must not be silently reformatted
+docs
+prompts
+CLAUDE.md
+README-FIRST.md
