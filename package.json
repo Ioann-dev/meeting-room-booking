@@ -23,5 +23,11 @@
   "devDependencies": {
     "concurrently": "^10.0.4",
     "prettier": "^3.9.6"
+  },
+  "allowScripts": {
+    "argon2@0.45.1": true,
+    "prisma@7.9.1": true,
+    "@prisma/engines@7.9.1": true,
+    "esbuild@0.28.1": true
   }
 }

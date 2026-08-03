@@ -1,0 +1,158 @@
+generator client {
+  provider        = "prisma-client"
+  output          = "../generated/prisma"
+  previewFeatures = ["postgresqlExtensions"]
+  moduleFormat    = "cjs"
+}
+
+datasource db {
+  provider   = "postgresql"
+  extensions = [citext, btree_gist]
+}
+
+// citext gives case-insensitive equality/uniqueness on the email column at
+// the database level, so canonical-email uniqueness holds regardless of
+// what any future application code does. Trimming is still the
+// application's responsibility (see docs/decisions/0001-booking-overlap.md
+// sibling note in architecture.md for the equivalent overlap reasoning).
+model User {
+  id           String   @id @default(uuid()) @db.Uuid
+  name         String
+  email        String   @unique @db.Citext
+  passwordHash String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  sessions                Session[]
+  emailVerificationTokens EmailVerificationToken[]
+  bookings                Booking[]
+  bookingSeries           BookingSeries[]
+  notifications           Notification[]
+}
+
+// Opaque session tokens are generated and held by the application; only a
+// hash of the token is ever persisted, so a database leak alone can't be
+// used to impersonate a live session. Revocation is row deletion, not a
+// status flag.
+model Session {
+  id        String   @id @default(uuid()) @db.Uuid
+  tokenHash String   @unique
+  userId    String   @db.Uuid
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+}
+
+// Same hashed-token approach as Session, for the same reason. consumedAt
+// makes a token single-use once the (future) verification endpoint accepts
+// it.
+model EmailVerificationToken {
+  id         String    @id @default(uuid()) @db.Uuid
+  tokenHash  String    @unique
+  userId     String    @db.Uuid
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt  DateTime
+  consumedAt DateTime?
+  createdAt  DateTime  @default(now())
+
+  @@index([userId])
+}
+
+model Room {
+  id        String   @id @default(uuid()) @db.Uuid
+  name      String   @unique
+  floor     Int
+  capacity  Int
+  createdAt DateTime @default(now())
+
+  bookings      Booking[]
+  bookingSeries BookingSeries[]
+}
+
+enum BookingStatus {
+  ACTIVE
+  CANCELLED
+}
+
+// startAt/endAt are UTC instants forming a half-open [startAt, endAt)
+// interval (see docs/decisions/0001-booking-overlap.md). The exclusion
+// constraint added by a hand-written migration (Prisma has no native
+// EXCLUDE-constraint syntax) is the actual overlap authority; the indexes
+// below only serve read queries.
+model Booking {
+  id          String         @id @default(uuid()) @db.Uuid
+  title       String
+  startAt     DateTime       @db.Timestamptz
+  endAt       DateTime       @db.Timestamptz
+  status      BookingStatus  @default(ACTIVE)
+  cancelledAt DateTime?
+  roomId      String         @db.Uuid
+  room        Room           @relation(fields: [roomId], references: [id], onDelete: Restrict)
+  userId      String         @db.Uuid
+  user        User           @relation(fields: [userId], references: [id], onDelete: Restrict)
+  seriesId    String?        @db.Uuid
+  series      BookingSeries? @relation(fields: [seriesId], references: [id], onDelete: SetNull)
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  endingNotifications Notification[] @relation("EndingBooking")
+  nextNotifications   Notification[] @relation("NextBooking")
+
+  @@index([roomId, startAt])
+  @@index([userId, startAt])
+  @@index([seriesId])
+}
+
+enum BookingSeriesStatus {
+  ACTIVE
+  CANCELLED
+}
+
+// Recurrence is stored as office-local wall-clock components (weekday +
+// minute-of-day), not a UTC start time, so occurrences can be regenerated
+// correctly across a Europe/Kyiv DST transition -- see docs/architecture.md.
+model BookingSeries {
+  id              String              @id @default(uuid()) @db.Uuid
+  ownerId         String              @db.Uuid
+  owner           User                @relation(fields: [ownerId], references: [id], onDelete: Restrict)
+  roomId          String              @db.Uuid
+  room            Room                @relation(fields: [roomId], references: [id], onDelete: Restrict)
+  weekday         Int
+  startMinute     Int
+  endMinute       Int
+  occurrenceCount Int
+  status          BookingSeriesStatus @default(ACTIVE)
+  createdAt       DateTime            @default(now())
+
+  bookings Booking[]
+
+  @@index([roomId])
+  @@index([ownerId])
+}
+
+enum NotificationType {
+  BOOKING_ENDING_SOON
+}
+
+// dedupeKey is the once-only guard: it's derived deterministically from
+// (endingBookingId, type) at creation time, so a unique constraint on it
+// -- not application-level care -- is what guarantees "exactly once" under
+// concurrent notification checks.
+model Notification {
+  id              String           @id @default(uuid()) @db.Uuid
+  recipientId     String           @db.Uuid
+  recipient       User             @relation(fields: [recipientId], references: [id], onDelete: Cascade)
+  type            NotificationType
+  endingBookingId String           @db.Uuid
+  endingBooking   Booking          @relation("EndingBooking", fields: [endingBookingId], references: [id], onDelete: Cascade)
+  nextBookingId   String           @db.Uuid
+  nextBooking     Booking          @relation("NextBooking", fields: [nextBookingId], references: [id], onDelete: Cascade)
+  dedupeKey       String           @unique
+  readAt          DateTime?
+  deliveredAt     DateTime?
+  createdAt       DateTime         @default(now())
+
+  @@index([recipientId, createdAt])
+}
