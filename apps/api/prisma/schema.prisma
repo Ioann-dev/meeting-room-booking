@@ -16,12 +16,13 @@ datasource db {
 // application's responsibility (see docs/decisions/0001-booking-overlap.md
 // sibling note in architecture.md for the equivalent overlap reasoning).
 model User {
-  id           String   @id @default(uuid()) @db.Uuid
-  name         String
-  email        String   @unique @db.Citext
-  passwordHash String
-  createdAt    DateTime @default(now()) @db.Timestamptz
-  updatedAt    DateTime @updatedAt @db.Timestamptz
+  id              String    @id @default(uuid()) @db.Uuid
+  name            String
+  email           String    @unique @db.Citext
+  passwordHash    String
+  emailVerifiedAt DateTime? @db.Timestamptz
+  createdAt       DateTime  @default(now()) @db.Timestamptz
+  updatedAt       DateTime  @updatedAt @db.Timestamptz
 
   sessions                Session[]
   emailVerificationTokens EmailVerificationToken[]
