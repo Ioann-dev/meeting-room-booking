@@ -20,8 +20,8 @@ model User {
   name         String
   email        String   @unique @db.Citext
   passwordHash String
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  createdAt    DateTime @default(now()) @db.Timestamptz
+  updatedAt    DateTime @updatedAt @db.Timestamptz
 
   sessions                Session[]
   emailVerificationTokens EmailVerificationToken[]
@@ -39,8 +39,8 @@ model Session {
   tokenHash String   @unique
   userId    String   @db.Uuid
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  expiresAt DateTime
-  createdAt DateTime @default(now())
+  expiresAt DateTime @db.Timestamptz
+  createdAt DateTime @default(now()) @db.Timestamptz
 
   @@index([userId])
 }
@@ -53,9 +53,9 @@ model EmailVerificationToken {
   tokenHash  String    @unique
   userId     String    @db.Uuid
   user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  expiresAt  DateTime
-  consumedAt DateTime?
-  createdAt  DateTime  @default(now())
+  expiresAt  DateTime  @db.Timestamptz
+  consumedAt DateTime? @db.Timestamptz
+  createdAt  DateTime  @default(now()) @db.Timestamptz
 
   @@index([userId])
 }
@@ -65,7 +65,7 @@ model Room {
   name      String   @unique
   floor     Int
   capacity  Int
-  createdAt DateTime @default(now())
+  createdAt DateTime @default(now()) @db.Timestamptz
 
   bookings      Booking[]
   bookingSeries BookingSeries[]
@@ -87,15 +87,15 @@ model Booking {
   startAt     DateTime       @db.Timestamptz
   endAt       DateTime       @db.Timestamptz
   status      BookingStatus  @default(ACTIVE)
-  cancelledAt DateTime?
+  cancelledAt DateTime?      @db.Timestamptz
   roomId      String         @db.Uuid
   room        Room           @relation(fields: [roomId], references: [id], onDelete: Restrict)
   userId      String         @db.Uuid
   user        User           @relation(fields: [userId], references: [id], onDelete: Restrict)
   seriesId    String?        @db.Uuid
   series      BookingSeries? @relation(fields: [seriesId], references: [id], onDelete: SetNull)
-  createdAt   DateTime       @default(now())
-  updatedAt   DateTime       @updatedAt
+  createdAt   DateTime       @default(now()) @db.Timestamptz
+  updatedAt   DateTime       @updatedAt @db.Timestamptz
 
   endingNotifications Notification[] @relation("EndingBooking")
   nextNotifications   Notification[] @relation("NextBooking")
@@ -124,7 +124,7 @@ model BookingSeries {
   endMinute       Int
   occurrenceCount Int
   status          BookingSeriesStatus @default(ACTIVE)
-  createdAt       DateTime            @default(now())
+  createdAt       DateTime            @default(now()) @db.Timestamptz
 
   bookings Booking[]
 
@@ -150,9 +150,9 @@ model Notification {
   nextBookingId   String           @db.Uuid
   nextBooking     Booking          @relation("NextBooking", fields: [nextBookingId], references: [id], onDelete: Cascade)
   dedupeKey       String           @unique
-  readAt          DateTime?
-  deliveredAt     DateTime?
-  createdAt       DateTime         @default(now())
+  readAt          DateTime?        @db.Timestamptz
+  deliveredAt     DateTime?        @db.Timestamptz
+  createdAt       DateTime         @default(now()) @db.Timestamptz
 
   @@index([recipientId, createdAt])
 }
