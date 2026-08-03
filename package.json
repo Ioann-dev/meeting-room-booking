@@ -16,7 +16,7 @@
     "lint": "npm run build -w packages/shared && npm run lint --workspaces --if-present",
     "typecheck": "npm run build -w packages/shared && npm run typecheck --workspaces --if-present",
     "test": "npm run build -w packages/shared && npm run test --workspaces --if-present",
-    "test:integration": "npm run build -w packages/shared && npm run test:e2e -w apps/api && npm run test:db:migrate -w apps/api && npm run test:db -w apps/api",
+    "test:integration": "npm run build -w packages/shared && npm run test:e2e -w apps/api && npm run test:db -w apps/api",
     "format": "prettier --write .",
     "format:check": "prettier --check ."
   },
