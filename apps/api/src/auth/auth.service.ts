@@ -1,11 +1,17 @@
-import { ConflictException, Injectable, Logger, UnauthorizedException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  Injectable,
+  Logger,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { canonicalizeEmail, type CurrentUser } from 'shared';
 import { PrismaService } from '../prisma/prisma.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { VerifyEmailDto } from './dto/verify-email.dto';
-import { hashPassword, verifyPassword } from './password.util';
+import { getDummyPasswordHash, hashPassword, verifyPassword } from './password.util';
 import { generateOpaqueToken, hashToken } from './token.util';
 import { EMAIL_VERIFICATION_TTL_MS, SESSION_TTL_MS } from './auth.constants';
 
@@ -42,11 +48,28 @@ export class AuthService {
   async register(dto: RegisterDto): Promise<AuthResult> {
     const email = canonicalizeEmail(dto.email);
     const passwordHash = await hashPassword(dto.password);
+    const rawVerificationToken = generateOpaqueToken();
 
-    const user = await this.prisma.user
-      .create({
-        data: { name: dto.name, email, passwordHash },
-        select: { id: true, name: true, email: true, emailVerifiedAt: true },
+    // User creation and its verification token are one transaction: without
+    // a resend-verification endpoint, a user row that ended up with no
+    // token (because a later, separate insert failed) would be permanently
+    // stuck -- unable to verify, and unable to re-register the same email.
+    const user = await this.prisma
+      .$transaction(async (tx) => {
+        const created = await tx.user.create({
+          data: { name: dto.name, email, passwordHash },
+          select: { id: true, name: true, email: true, emailVerifiedAt: true },
+        });
+
+        await tx.emailVerificationToken.create({
+          data: {
+            userId: created.id,
+            tokenHash: hashToken(rawVerificationToken),
+            expiresAt: new Date(Date.now() + EMAIL_VERIFICATION_TTL_MS),
+          },
+        });
+
+        return created;
       })
       .catch((error: unknown) => {
         if (isUniqueConstraintViolation(error)) {
@@ -55,7 +78,7 @@ export class AuthService {
         throw error;
       });
 
-    await this.issueEmailVerificationToken(user.id, user.email);
+    this.logVerificationLink(user.email, rawVerificationToken);
     const sessionToken = await this.createSession(user.id);
 
     return { user, sessionToken };
@@ -68,9 +91,17 @@ export class AuthService {
       select: { id: true, name: true, email: true, emailVerifiedAt: true, passwordHash: true },
     });
 
-    // Same generic message whether the email doesn't exist or the password
-    // is wrong, so a failed attempt can't be used to enumerate accounts.
-    if (!user || !(await verifyPassword(user.passwordHash, dto.password))) {
+    // Always run a real Argon2 verification, even when no account matches,
+    // against a fixed dummy hash -- otherwise this path returns almost
+    // instantly while a wrong-password attempt takes as long as a real
+    // verify (tens of milliseconds), and that timing gap alone lets an
+    // attacker enumerate registered emails despite the identical message.
+    const passwordValid = await verifyPassword(
+      user?.passwordHash ?? (await getDummyPasswordHash()),
+      dto.password,
+    );
+
+    if (!user || !passwordValid) {
       throw new UnauthorizedException('Invalid email or password');
     }
 
@@ -122,7 +153,7 @@ export class AuthService {
     const invalid =
       !record || record.consumedAt !== null || record.expiresAt.getTime() < Date.now();
     if (invalid) {
-      throw new UnauthorizedException('This verification link is invalid or has expired.');
+      throw new BadRequestException('This verification link is invalid or has expired.');
     }
 
     await this.prisma.$transaction([
@@ -153,16 +184,7 @@ export class AuthService {
     return rawToken;
   }
 
-  private async issueEmailVerificationToken(userId: string, email: string): Promise<void> {
-    const rawToken = generateOpaqueToken();
-    await this.prisma.emailVerificationToken.create({
-      data: {
-        userId,
-        tokenHash: hashToken(rawToken),
-        expiresAt: new Date(Date.now() + EMAIL_VERIFICATION_TTL_MS),
-      },
-    });
-
+  private logVerificationLink(email: string, rawToken: string): void {
     const webOrigin = this.config.get<string>('WEB_ORIGIN') ?? 'http://localhost:3000';
     const verificationUrl = `${webOrigin}/verify-email?token=${rawToken}`;
     // Development stand-in for sending a real email; never log the raw

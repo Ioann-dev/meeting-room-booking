@@ -1,5 +1,5 @@
 import { Body, Controller, Get, HttpCode, Post, Req, Res, UseGuards } from '@nestjs/common';
-import type { Response } from 'express';
+import type { Request, Response } from 'express';
 import type { CurrentUser as CurrentUserDto } from 'shared';
 import { AuthService } from './auth.service';
 import { RegisterDto } from './dto/register.dto';
@@ -19,7 +19,7 @@ export class AuthController {
   @Post('register')
   async register(
     @Body() dto: RegisterDto,
-    @Req() req: AuthenticatedRequest,
+    @Req() req: Request,
     @Res({ passthrough: true }) res: Response,
   ): Promise<CurrentUserDto> {
     const { user, sessionToken } = await this.authService.register(dto);
@@ -31,7 +31,7 @@ export class AuthController {
   @HttpCode(200)
   async login(
     @Body() dto: LoginDto,
-    @Req() req: AuthenticatedRequest,
+    @Req() req: Request,
     @Res({ passthrough: true }) res: Response,
   ): Promise<CurrentUserDto> {
     const { user, sessionToken } = await this.authService.login(dto);

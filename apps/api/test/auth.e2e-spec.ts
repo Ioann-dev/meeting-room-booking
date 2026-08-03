@@ -79,6 +79,20 @@ describe('Auth (e2e)', () => {
         .send({ name: 'Boundary', email: uniqueEmail('pw'), password })
         .expect(expectedStatus);
     });
+
+    it('rejects a name longer than 100 characters', async () => {
+      await request(app.getHttpServer())
+        .post('/auth/register')
+        .send({ name: 'a'.repeat(101), email: uniqueEmail('longname'), password: 'ValidPass123' })
+        .expect(400);
+    });
+
+    it('accepts a name exactly 100 characters long', async () => {
+      await request(app.getHttpServer())
+        .post('/auth/register')
+        .send({ name: 'a'.repeat(100), email: uniqueEmail('maxname'), password: 'ValidPass123' })
+        .expect(201);
+    });
   });
 
   describe('POST /auth/login', () => {
@@ -225,7 +239,7 @@ describe('Auth (e2e)', () => {
       await request(app.getHttpServer())
         .post('/auth/verify-email')
         .send({ token: rawToken })
-        .expect(401);
+        .expect(400);
     });
 
     it('rejects an expired token', async () => {
@@ -242,14 +256,14 @@ describe('Auth (e2e)', () => {
       await request(app.getHttpServer())
         .post('/auth/verify-email')
         .send({ token: rawToken })
-        .expect(401);
+        .expect(400);
     });
 
     it('rejects a token that never existed', async () => {
       await request(app.getHttpServer())
         .post('/auth/verify-email')
         .send({ token: 'this-token-was-never-issued' })
-        .expect(401);
+        .expect(400);
     });
   });
 });

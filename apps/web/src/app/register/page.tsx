@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { FormEvent, useState } from 'react';
+import { NAME_MAX_LENGTH, PASSWORD_MAX_LENGTH, PASSWORD_MIN_LENGTH } from 'shared';
 import { ApiError } from '@/lib/api-error';
 import { register } from '@/lib/auth-client';
 
@@ -14,14 +15,17 @@ interface FieldErrors {
 
 function validate(name: string, email: string, password: string): FieldErrors {
   const errors: FieldErrors = {};
-  if (name.trim().length === 0) {
+  const trimmedName = name.trim();
+  if (trimmedName.length === 0) {
     errors.name = 'Name is required';
+  } else if (trimmedName.length > NAME_MAX_LENGTH) {
+    errors.name = `Name must be at most ${NAME_MAX_LENGTH} characters`;
   }
   if (email.trim().length === 0) {
     errors.email = 'Email is required';
   }
-  if (password.length < 8 || password.length > 72) {
-    errors.password = 'Password must be between 8 and 72 characters';
+  if (password.length < PASSWORD_MIN_LENGTH || password.length > PASSWORD_MAX_LENGTH) {
+    errors.password = `Password must be between ${PASSWORD_MIN_LENGTH} and ${PASSWORD_MAX_LENGTH} characters`;
   }
   return errors;
 }
