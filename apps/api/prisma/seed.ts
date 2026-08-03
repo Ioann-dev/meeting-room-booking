@@ -1,7 +1,7 @@
 import 'dotenv/config';
-import * as argon2 from 'argon2';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient } from '../generated/prisma/client';
+import { hashPassword } from '../src/auth/password.util';
 
 const databaseUrl = process.env.DATABASE_URL;
 if (!databaseUrl) {
@@ -89,17 +89,19 @@ async function main() {
   const roomByName = new Map(rooms.map((room) => [room.name, room]));
 
   const users = await Promise.all(
-    TEST_USERS.map(async (testUser) =>
-      prisma.user.upsert({
+    TEST_USERS.map(async (testUser) => {
+      const passwordHash = await hashPassword(testUser.password);
+      return prisma.user.upsert({
         where: { email: testUser.email },
-        update: {},
+        update: { emailVerifiedAt: new Date() },
         create: {
           name: testUser.name,
           email: testUser.email,
-          passwordHash: await argon2.hash(testUser.password, { type: argon2.argon2id }),
+          passwordHash,
+          emailVerifiedAt: new Date(),
         },
-      }),
-    ),
+      });
+    }),
   );
   const userByEmail = new Map(users.map((user) => [user.email, user]));
 
