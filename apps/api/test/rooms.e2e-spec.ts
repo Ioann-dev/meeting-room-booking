@@ -82,6 +82,28 @@ describe('Rooms (e2e)', () => {
         expect(Object.keys(room).sort()).toEqual(['capacity', 'floor', 'id', 'name']);
       }
     });
+
+    it('filters by minimum capacity', async () => {
+      const response = await request(app.getHttpServer())
+        .get('/rooms')
+        .query({ minCapacity: 8 })
+        .set('Cookie', cookie)
+        .expect(200);
+
+      const body = response.body as RoomSummary[];
+      const seeded = body.filter((room) => Object.values(roomNames).includes(room.name));
+      expect(seeded.map((room) => room.name).sort()).toEqual(
+        [roomNames.large, roomNames.medium].sort(),
+      );
+    });
+
+    it('rejects a non-numeric minCapacity', async () => {
+      await request(app.getHttpServer())
+        .get('/rooms')
+        .query({ minCapacity: 'not-a-number' })
+        .set('Cookie', cookie)
+        .expect(400);
+    });
   });
 
   describe('GET /rooms/:id', () => {

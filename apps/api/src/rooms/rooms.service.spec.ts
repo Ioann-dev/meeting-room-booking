@@ -14,13 +14,27 @@ function buildService(overrides: { findMany?: jest.Mock; findUnique?: jest.Mock 
 
 describe('RoomsService', () => {
   describe('list', () => {
-    it('lists rooms ordered by name', async () => {
+    it('queries without a capacity filter when none is given', async () => {
       const findMany = jest.fn().mockResolvedValue([]);
       const service = buildService({ findMany });
 
-      await service.list();
+      await service.list(undefined);
 
       expect(findMany).toHaveBeenCalledWith({
+        where: undefined,
+        orderBy: { name: 'asc' },
+        select: { id: true, name: true, floor: true, capacity: true },
+      });
+    });
+
+    it('filters by minimum capacity when given', async () => {
+      const findMany = jest.fn().mockResolvedValue([]);
+      const service = buildService({ findMany });
+
+      await service.list(8);
+
+      expect(findMany).toHaveBeenCalledWith({
+        where: { capacity: { gte: 8 } },
         orderBy: { name: 'asc' },
         select: { id: true, name: true, floor: true, capacity: true },
       });

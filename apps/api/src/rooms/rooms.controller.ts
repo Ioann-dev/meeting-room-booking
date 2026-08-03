@@ -1,6 +1,7 @@
-import { Controller, Get, Param, ParseUUIDPipe, UseGuards } from '@nestjs/common';
+import { Controller, Get, Param, ParseUUIDPipe, Query, UseGuards } from '@nestjs/common';
 import type { RoomSummary } from 'shared';
 import { RoomsService } from './rooms.service';
+import { ListRoomsDto } from './dto/list-rooms.dto';
 import { SessionGuard } from '../auth/guards/session.guard';
 
 @Controller('rooms')
@@ -9,8 +10,8 @@ export class RoomsController {
   constructor(private readonly roomsService: RoomsService) {}
 
   @Get()
-  list(): Promise<RoomSummary[]> {
-    return this.roomsService.list();
+  list(@Query() query: ListRoomsDto): Promise<RoomSummary[]> {
+    return this.roomsService.list(query.minCapacity);
   }
 
   @Get(':id')

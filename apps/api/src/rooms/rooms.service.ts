@@ -8,8 +8,9 @@ const ROOM_SUMMARY_SELECT = { id: true, name: true, floor: true, capacity: true 
 export class RoomsService {
   constructor(private readonly prisma: PrismaService) {}
 
-  list(): Promise<RoomSummary[]> {
+  list(minCapacity?: number): Promise<RoomSummary[]> {
     return this.prisma.room.findMany({
+      where: minCapacity === undefined ? undefined : { capacity: { gte: minCapacity } },
       orderBy: { name: 'asc' },
       select: ROOM_SUMMARY_SELECT,
     });
