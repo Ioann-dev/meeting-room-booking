@@ -4,14 +4,14 @@ Concise, phase-grouped checklist derived from `docs/requirements-matrix.md` and
 `docs/architecture.md`. Each phase's own `prompts/NN-*.md` is the executable instruction;
 this is the cross-phase tracking view.
 
-- [ ] **01 — Workspace**: npm workspaces (`apps/web`, `apps/api`, `packages/shared`); strict
+- [x] **01 — Workspace**: npm workspaces (`apps/web`, `apps/api`, `packages/shared`); strict
       TypeScript in all three; root format/lint/typecheck/test scripts; API health check
       surfaced on web; local dev docs.
-- [ ] **02 — Persistence**: Prisma schema (User, Session, VerificationToken, Room, Booking,
+- [x] **02 — Persistence**: Prisma schema (User, Session, VerificationToken, Room, Booking,
       BookingSeries, Notification); indexes for schedule and history queries; `btree_gist`
       exclusion constraint for active-booking overlap; deterministic room + two test-user
       seed; conflict-free demo bookings; migrate/seed/reset scripts; constraint tests.
-- [ ] **03 — Authentication**: registration with email canonicalization and validation;
+- [x] **03 — Authentication**: registration with email canonicalization and validation;
       Argon2id hashing; opaque DB session issuance/guard; logout/revocation; dev email
       verification tokens; login/register screens; session restore on reload; auth tests.
 - [ ] **04 — Rooms and time**: room list/detail + capacity filter endpoints; centralized

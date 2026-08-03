@@ -41,12 +41,17 @@ npm run dev
 
 ## Test users
 
-Seeded by `npm run db:seed -w apps/api`:
+Seeded by `npm run db:seed -w apps/api`, and already email-verified so they're
+immediately usable without going through the verification flow:
 
 | Name          | Email             | Password         |
 | ------------- | ----------------- | ---------------- |
 | Alice Johnson | alice@example.com | AlicePassword123 |
 | Bob Smith     | bob@example.com   | BobPassword123   |
+
+New accounts created via the registration page are not verified until the emailed
+link is followed. There is no real email sending in development: the verification
+link is logged to the API's console output instead.
 
 ## Database commands (apps/api)
 
