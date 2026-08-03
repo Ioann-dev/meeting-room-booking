@@ -7,7 +7,7 @@ import { createTestApp } from './utils/bootstrap-app';
 import { PrismaService } from '../src/prisma/prisma.service';
 import { hashToken } from '../src/auth/token.util';
 
-function sessionCookieFrom(response: { headers: Record<string, unknown> }): string {
+function sessionSetCookieHeaderFrom(response: { headers: Record<string, unknown> }): string {
   const setCookie = response.headers['set-cookie'];
   const cookies = Array.isArray(setCookie) ? setCookie : [setCookie];
   const sessionCookie = cookies.find(
@@ -16,7 +16,26 @@ function sessionCookieFrom(response: { headers: Record<string, unknown> }): stri
   if (!sessionCookie) {
     throw new Error('Response did not set a session cookie');
   }
-  return sessionCookie.split(';')[0]!;
+  return sessionCookie;
+}
+
+function sessionCookieFrom(response: { headers: Record<string, unknown> }): string {
+  return sessionSetCookieHeaderFrom(response).split(';')[0]!;
+}
+
+// Guards against a future refactor silently dropping a security attribute
+// (e.g. HttpOnly) from `sessionCookieOptions()` -- the name/value assertions
+// elsewhere only check `session=<value>` and would not catch that.
+function expectSecureSessionCookieAttributes(response: { headers: Record<string, unknown> }): void {
+  const setCookieHeader = sessionSetCookieHeaderFrom(response);
+  expect(setCookieHeader).toMatch(/;\s*HttpOnly/i);
+  expect(setCookieHeader).toMatch(/;\s*SameSite=Lax/i);
+  expect(setCookieHeader).toMatch(/;\s*Path=\//i);
+  // Supertest talks to the app over plain HTTP, so `request.secure` is
+  // false and the Secure attribute must correctly be absent here; the
+  // per-request derivation in `sessionCookieOptions()` is what makes it
+  // present automatically once the app runs behind TLS in production.
+  expect(setCookieHeader).not.toMatch(/;\s*Secure/i);
 }
 
 function uniqueEmail(label: string): string {
@@ -53,6 +72,7 @@ describe('Auth (e2e)', () => {
       expect(body.email).toBe(email);
       expect(body.emailVerified).toBe(false);
       expect(sessionCookieFrom(response)).toMatch(/^session=.+/);
+      expectSecureSessionCookieAttributes(response);
     });
 
     it('rejects a second registration whose email differs only by case', async () => {
@@ -93,6 +113,18 @@ describe('Auth (e2e)', () => {
         .send({ name: 'a'.repeat(100), email: uniqueEmail('maxname'), password: 'ValidPass123' })
         .expect(201);
     });
+
+    it('rejects a request body containing a field outside the DTO', async () => {
+      await request(app.getHttpServer())
+        .post('/auth/register')
+        .send({
+          name: 'Whitelist Test',
+          email: uniqueEmail('whitelist'),
+          password: 'ValidPass123',
+          isAdmin: true,
+        })
+        .expect(400);
+    });
   });
 
   describe('POST /auth/login', () => {
@@ -109,6 +141,7 @@ describe('Auth (e2e)', () => {
         .expect(200);
 
       expect(sessionCookieFrom(response)).toMatch(/^session=.+/);
+      expectSecureSessionCookieAttributes(response);
     });
 
     it('rejects an unknown email and a wrong password with the same message', async () => {
