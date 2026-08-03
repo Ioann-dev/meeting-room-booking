@@ -1,5 +1,6 @@
 import { ApiStatus } from '@/components/api-status';
 import { AccountStatus } from '@/components/account-status';
+import { OfficeZoneNotice } from '@/components/office-zone-notice';
 
 export default function Home() {
   return (
@@ -7,6 +8,7 @@ export default function Home() {
       <h1 className="text-2xl font-semibold">Meeting Room Booking</h1>
       <ApiStatus />
       <AccountStatus />
+      <OfficeZoneNotice />
     </main>
   );
 }
