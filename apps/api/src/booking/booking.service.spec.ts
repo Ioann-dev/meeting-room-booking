@@ -730,7 +730,14 @@ describe('BookingService.createSeries', () => {
     });
   });
 
-  it('rolls back and reports the occurrence when the transaction itself hits a conflict', async () => {
+  // Renamed for accuracy (Phase 06 review M2): this mocked-Prisma test
+  // proves error mapping and the currentIndex bookkeeping only -- the
+  // stub's `$transaction` just invokes the callback directly (see
+  // buildService's own comment), so it has no real cross-query atomicity
+  // and cannot prove that a mid-series conflict actually rolls back
+  // already-inserted rows. That guarantee is proven for real, against
+  // real Postgres, by test/db/booking-series-rollback.db-spec.ts.
+  it('reports the conflicting occurrence when the database rejects a mid-series insert', async () => {
     const conflictError = new Prisma.PrismaClientKnownRequestError(
       'Database error, please retry.',
       {
