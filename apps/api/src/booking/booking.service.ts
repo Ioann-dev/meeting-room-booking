@@ -1,5 +1,11 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
-import { isAlignedToSlot, isValidDuration, OFFICE_TIMEZONE, type BookingSummary } from 'shared';
+import {
+  isAlignedToSlot,
+  isValidDuration,
+  isWithinOfficeHours,
+  OFFICE_TIMEZONE,
+  type BookingSummary,
+} from 'shared';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateBookingDto } from './dto/create-booking.dto';
 import type { AuthenticatedUser } from '../auth/auth.service';
@@ -47,6 +53,14 @@ export class BookingService {
     }
     if (!isValidDuration(startAt, endAt)) {
       throw new BadRequestException('Booking duration must be between 30 minutes and 4 hours');
+    }
+    if (startAt.getTime() <= Date.now()) {
+      throw new BadRequestException('Bookings must start in the future');
+    }
+    if (!isWithinOfficeHours(startAt, endAt)) {
+      throw new BadRequestException(
+        'Bookings must fall entirely within office hours (09:00-19:00 Europe/Kyiv)',
+      );
     }
 
     const created = await this.prisma.booking.create({

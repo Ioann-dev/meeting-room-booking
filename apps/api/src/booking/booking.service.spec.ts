@@ -11,6 +11,16 @@ const REQUESTER: AuthenticatedUser = {
   emailVerifiedAt: new Date(),
 };
 
+// Fixes "now" well before every fixture's 2026-06-01 date, so the
+// strictly-future check doesn't depend on when this suite actually runs.
+beforeEach(() => {
+  jest.useFakeTimers().setSystemTime(new Date('2026-01-01T00:00:00.000Z'));
+});
+
+afterEach(() => {
+  jest.useRealTimers();
+});
+
 function buildDto(overrides: Partial<CreateBookingDto> = {}): CreateBookingDto {
   const dto = new CreateBookingDto();
   dto.title = 'Sprint Planning';
@@ -154,6 +164,74 @@ describe('BookingService.create', () => {
       await expect(
         service.create(
           buildDto({ startAt: '2026-06-01T06:00:00.000Z', endAt: '2026-06-01T10:01:00.000Z' }),
+          REQUESTER,
+        ),
+      ).rejects.toThrow(BadRequestException);
+    });
+  });
+
+  describe('future-only', () => {
+    it('rejects a start time in the past relative to the server clock', async () => {
+      jest.setSystemTime(new Date('2026-06-02T00:00:00.000Z')); // after the 06-01 fixture
+      const service = buildService({});
+
+      await expect(service.create(buildDto(), REQUESTER)).rejects.toThrow(BadRequestException);
+    });
+
+    it('rejects a start time exactly equal to the current instant', async () => {
+      jest.setSystemTime(new Date('2026-06-01T06:00:00.000Z')); // equal to the fixture's startAt
+      const service = buildService({});
+
+      await expect(service.create(buildDto(), REQUESTER)).rejects.toThrow(BadRequestException);
+    });
+
+    it('accepts a start time in the future', async () => {
+      const service = buildService({});
+
+      await expect(service.create(buildDto(), REQUESTER)).resolves.toBeDefined();
+    });
+  });
+
+  describe('office hours', () => {
+    it('accepts a booking starting exactly at the opening boundary', async () => {
+      const service = buildService({});
+
+      await expect(
+        service.create(
+          buildDto({ startAt: '2026-06-01T06:00:00.000Z', endAt: '2026-06-01T06:30:00.000Z' }), // 09:00-09:30 Kyiv
+          REQUESTER,
+        ),
+      ).resolves.toBeDefined();
+    });
+
+    it('accepts a booking ending exactly at the closing boundary', async () => {
+      const service = buildService({});
+
+      await expect(
+        service.create(
+          buildDto({ startAt: '2026-06-01T15:30:00.000Z', endAt: '2026-06-01T16:00:00.000Z' }), // 18:30-19:00 Kyiv
+          REQUESTER,
+        ),
+      ).resolves.toBeDefined();
+    });
+
+    it('rejects a booking starting before the office opens', async () => {
+      const service = buildService({});
+
+      await expect(
+        service.create(
+          buildDto({ startAt: '2026-06-01T05:30:00.000Z', endAt: '2026-06-01T06:30:00.000Z' }), // 08:30-09:30 Kyiv
+          REQUESTER,
+        ),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('rejects a booking ending after the office closes', async () => {
+      const service = buildService({});
+
+      await expect(
+        service.create(
+          buildDto({ startAt: '2026-06-01T15:30:00.000Z', endAt: '2026-06-01T16:30:00.000Z' }), // 18:30-19:30 Kyiv
           REQUESTER,
         ),
       ).rejects.toThrow(BadRequestException);
