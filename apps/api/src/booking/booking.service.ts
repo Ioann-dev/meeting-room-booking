@@ -7,6 +7,7 @@ import {
 } from '@nestjs/common';
 import {
   BOOKING_ERROR_CODES,
+  generateWeeklyOccurrences,
   getOfficeWeekBoundaries,
   intervalsOverlap,
   isAlignedToSlot,
@@ -14,12 +15,14 @@ import {
   isWithinOfficeHours,
   OFFICE_TIMEZONE,
   parseIsoInstant,
+  toZonedParts,
+  type BookingSeriesSummary,
   type BookingSummary,
   type RoomScheduleResponse,
 } from 'shared';
 import { BookingStatus, Prisma } from '../../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
-import { CreateBookingDto } from './dto/create-booking.dto';
+import { CreateBookingDto, RecurrenceInputDto } from './dto/create-booking.dto';
 import type { AuthenticatedUser } from '../auth/auth.service';
 
 const BOOKING_WITH_AUTHOR_SELECT = {
@@ -49,13 +52,7 @@ export class BookingService {
   constructor(private readonly prisma: PrismaService) {}
 
   async create(dto: CreateBookingDto, user: AuthenticatedUser): Promise<BookingSummary> {
-    const room = await this.prisma.room.findUnique({
-      where: { id: dto.roomId },
-      select: { id: true },
-    });
-    if (!room) {
-      throw new NotFoundException('Room not found');
-    }
+    await this.requireRoom(dto.roomId);
 
     // Never the native `Date` constructor here: it resolves an
     // offset-less string in the host process's local zone (see
@@ -66,19 +63,7 @@ export class BookingService {
     // reaches this line.
     const startAt = parseIsoInstant(dto.startAt);
     const endAt = parseIsoInstant(dto.endAt);
-
-    if (!isAlignedToSlot(startAt, OFFICE_TIMEZONE) || !isAlignedToSlot(endAt, OFFICE_TIMEZONE)) {
-      throw slotMisalignedError();
-    }
-    if (!isValidDuration(startAt, endAt)) {
-      throw durationInvalidError();
-    }
-    if (startAt.getTime() <= Date.now()) {
-      throw pastStartError();
-    }
-    if (!isWithinOfficeHours(startAt, endAt)) {
-      throw outsideOfficeHoursError();
-    }
+    this.validateOccurrenceTiming(startAt, endAt);
 
     // Fast, non-racy pre-check for the overwhelmingly common non-concurrent
     // case: reuse the same shared overlap predicate the interval unit tests
@@ -130,15 +115,94 @@ export class BookingService {
     return this.toSummary(created, user.id);
   }
 
+  // Happy-path series creation: generates every occurrence in office-local
+  // calendar weeks (DST-safe), applies the identical per-occurrence
+  // validation create() applies to a single booking, and inserts the
+  // series row plus every occurrence in one transaction so a mid-series
+  // failure leaves nothing behind. Occurrence-specific conflict reporting
+  // (which occurrence collided) is layered on in createSeries's own
+  // overlap handling below the transaction.
+  async createSeries(
+    dto: CreateBookingDto,
+    recurrence: RecurrenceInputDto,
+    user: AuthenticatedUser,
+  ): Promise<BookingSeriesSummary> {
+    await this.requireRoom(dto.roomId);
+
+    const firstStart = parseIsoInstant(dto.startAt);
+    const firstEnd = parseIsoInstant(dto.endAt);
+    this.validateOccurrenceTiming(firstStart, firstEnd);
+
+    const occurrences = generateWeeklyOccurrences(
+      firstStart,
+      firstEnd,
+      recurrence.occurrenceCount,
+    ).map((occ) => ({
+      startAt: parseIsoInstant(occ.startUtc),
+      endAt: parseIsoInstant(occ.endUtc),
+    }));
+    for (const occurrence of occurrences) {
+      this.validateOccurrenceTiming(occurrence.startAt, occurrence.endAt);
+    }
+
+    const firstStartParts = toZonedParts(firstStart, OFFICE_TIMEZONE);
+    const firstEndParts = toZonedParts(firstEnd, OFFICE_TIMEZONE);
+
+    let seriesId: string;
+    let created: BookingWithAuthor[];
+    try {
+      const result = await this.prisma.$transaction(async (tx) => {
+        const series = await tx.bookingSeries.create({
+          data: {
+            ownerId: user.id,
+            roomId: dto.roomId,
+            weekday: firstStartParts.weekday,
+            startMinute: firstStartParts.hour * 60 + firstStartParts.minute,
+            endMinute: firstEndParts.hour * 60 + firstEndParts.minute,
+            occurrenceCount: recurrence.occurrenceCount,
+          },
+        });
+
+        const rows: BookingWithAuthor[] = [];
+        for (const occurrence of occurrences) {
+          const booking = await tx.booking.create({
+            data: {
+              title: dto.title,
+              startAt: occurrence.startAt,
+              endAt: occurrence.endAt,
+              roomId: dto.roomId,
+              userId: user.id,
+              seriesId: series.id,
+            },
+            select: BOOKING_WITH_AUTHOR_SELECT,
+          });
+          rows.push(booking);
+        }
+        return { seriesId: series.id, rows };
+      });
+      seriesId = result.seriesId;
+      created = result.rows;
+    } catch (error) {
+      if (isOverlapConstraintViolation(error)) {
+        throw bookingConflictError();
+      }
+      throw error;
+    }
+
+    return {
+      seriesId,
+      roomId: dto.roomId,
+      occurrenceCount: recurrence.occurrenceCount,
+      bookings: created.map((booking) => this.toSummary(booking, user.id)),
+    };
+  }
+
   async getRoomSchedule(
     roomId: string,
     referenceDate: string | undefined,
     requesterId: string,
   ): Promise<RoomScheduleResponse> {
-    const room = await this.prisma.room.findUnique({ where: { id: roomId }, select: { id: true } });
-    if (!room) {
-      throw new NotFoundException('Room not found');
-    }
+    await this.requireRoom(roomId);
 
     const { startUtc, endUtc } = getOfficeWeekBoundaries(referenceDate ?? new Date().toISOString());
 
@@ -185,6 +249,31 @@ export class BookingService {
       where: { id: bookingId },
       data: { status: BookingStatus.CANCELLED, cancelledAt: new Date() },
     });
+  }
+
+  private async requireRoom(roomId: string): Promise<void> {
+    const room = await this.prisma.room.findUnique({ where: { id: roomId }, select: { id: true } });
+    if (!room) {
+      throw new NotFoundException('Room not found');
+    }
+  }
+
+  // The single-booking rule set from create(), factored out so a
+  // recurring series applies exactly the same validation to every
+  // occurrence rather than a second, potentially-drifting copy of it.
+  private validateOccurrenceTiming(startAt: Date, endAt: Date): void {
+    if (!isAlignedToSlot(startAt, OFFICE_TIMEZONE) || !isAlignedToSlot(endAt, OFFICE_TIMEZONE)) {
+      throw slotMisalignedError();
+    }
+    if (!isValidDuration(startAt, endAt)) {
+      throw durationInvalidError();
+    }
+    if (startAt.getTime() <= Date.now()) {
+      throw pastStartError();
+    }
+    if (!isWithinOfficeHours(startAt, endAt)) {
+      throw outsideOfficeHoursError();
+    }
   }
 
   private toSummary(booking: BookingWithAuthor, requesterId: string): BookingSummary {

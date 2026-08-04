@@ -9,7 +9,7 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
-import type { BookingSummary, RoomScheduleResponse } from 'shared';
+import type { BookingSeriesSummary, BookingSummary, RoomScheduleResponse } from 'shared';
 import { BookingService } from './booking.service';
 import { CreateBookingDto } from './dto/create-booking.dto';
 import { ScheduleQueryDto } from './dto/schedule-query.dto';
@@ -23,14 +23,20 @@ import type { AuthenticatedUser } from '../auth/auth.service';
 export class BookingController {
   constructor(private readonly bookingService: BookingService) {}
 
+  // A `recurrence` field in the body creates a weekly series instead of a
+  // single booking; the two response shapes are structurally distinct
+  // (BookingSeriesSummary has no top-level `id`), so no separate
+  // discriminant field is needed for a client to tell them apart.
   @Post()
   @HttpCode(201)
   @UseGuards(EmailVerifiedGuard)
   create(
     @Body() dto: CreateBookingDto,
     @CurrentUser() user: AuthenticatedUser,
-  ): Promise<BookingSummary> {
-    return this.bookingService.create(dto, user);
+  ): Promise<BookingSummary | BookingSeriesSummary> {
+    return dto.recurrence
+      ? this.bookingService.createSeries(dto, dto.recurrence, user)
+      : this.bookingService.create(dto, user);
   }
 
   @Get('schedule')
