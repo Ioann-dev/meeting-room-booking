@@ -1,1 +1,94 @@
 @import 'tailwindcss';
+
+/*
+ * Design tokens for a restrained, professional B2B interface: warm-neutral
+ * slate surfaces with a single deliberate teal accent reserved for primary
+ * actions and focus states. Deliberately not the default Tailwind
+ * indigo/purple scale.
+ */
+@theme {
+  /* Surfaces */
+  --color-canvas: #f6f7f7;
+  --color-surface: #ffffff;
+
+  /* Ink (warm-neutral slate, not pure blue-gray) */
+  --color-ink: #12181f;
+  --color-ink-muted: #3e4750;
+  --color-ink-subtle: #6b7480;
+  --color-ink-faint: #99a1ab;
+
+  /* Borders */
+  --color-border: #dfe3e6;
+  --color-border-strong: #c3c9cf;
+
+  /* Accent */
+  --color-accent: #0e7c7b;
+  --color-accent-strong: #0a5f5e;
+  --color-accent-tint: #e4f2f1;
+
+  /* Semantic status */
+  --color-danger: #b3261e;
+  --color-danger-strong: #8f1e18;
+  --color-danger-tint: #fbeae9;
+  --color-warning: #8a5a00;
+  --color-warning-tint: #fbf1dc;
+  --color-success: #1e7b4d;
+  --color-success-tint: #e6f5ec;
+  --color-info: #1d5b8f;
+  --color-info-tint: #e7f1f9;
+
+  /* Typography: system stack, no webfont dependency */
+  --font-sans:
+    -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, ui-sans-serif, system-ui, sans-serif;
+
+  /* Radii: small and consistent, never pill-shaped */
+  --radius-sm: 0.25rem;
+  --radius-md: 0.375rem;
+  --radius-lg: 0.625rem;
+
+  /* Shadows: reserved for genuinely elevated layers (menus, dialogs, toasts) */
+  --shadow-sm: 0 1px 2px 0 rgb(15 23 32 / 0.06);
+  --shadow-md: 0 8px 24px -4px rgb(15 23 32 / 0.16), 0 2px 6px -2px rgb(15 23 32 / 0.08);
+
+  /* Focus ring */
+  --color-focus-ring: var(--color-accent);
+}
+
+@layer base {
+  html {
+    color-scheme: light;
+  }
+
+  body {
+    background-color: var(--color-canvas);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    font-size: 0.875rem;
+    line-height: 1.25rem;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  /* Visible, consistent focus treatment everywhere; never suppressed. */
+  :focus-visible {
+    outline: 2px solid var(--color-focus-ring);
+    outline-offset: 2px;
+    border-radius: var(--radius-sm);
+  }
+
+  /* Numeric/time data reads more consistently with tabular figures. */
+  .tabular-nums {
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
