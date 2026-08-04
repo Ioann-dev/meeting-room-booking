@@ -13,6 +13,7 @@ import {
   isValidDuration,
   isWithinOfficeHours,
   OFFICE_TIMEZONE,
+  parseIsoInstant,
   type BookingSummary,
   type RoomScheduleResponse,
 } from 'shared';
@@ -56,8 +57,15 @@ export class BookingService {
       throw new NotFoundException('Room not found');
     }
 
-    const startAt = new Date(dto.startAt);
-    const endAt = new Date(dto.endAt);
+    // Never the native `Date` constructor here: it resolves an
+    // offset-less string in the host process's local zone (see
+    // packages/shared/src/time.ts), which would make the persisted
+    // instant depend on where the API happens to run. The DTO already
+    // requires an explicit offset/"Z" (ISO_INSTANT_PATTERN), so
+    // parseIsoInstant is host-zone-independent for every input that
+    // reaches this line.
+    const startAt = parseIsoInstant(dto.startAt);
+    const endAt = parseIsoInstant(dto.endAt);
 
     if (!isAlignedToSlot(startAt, OFFICE_TIMEZONE) || !isAlignedToSlot(endAt, OFFICE_TIMEZONE)) {
       throw slotMisalignedError();

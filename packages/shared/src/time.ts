@@ -55,6 +55,36 @@ function toDateTime(instant: Instant): DateTime {
   return dt;
 }
 
+// Extended ISO-8601 date-time with an explicit UTC offset or "Z" only --
+// deliberately narrower than what class-validator's IsISO8601 or Luxon's
+// fromISO both accept (basic format, week-dates, and offset-less
+// date-times all pass those). An offset-less instant is ambiguous by
+// definition -- there is no such thing as "the" UTC instant it represents
+// without picking a zone to interpret it in -- and picking one implicitly
+// is exactly the host-process-local-zone dependency this module exists to
+// rule out. Requiring the client to always send an explicit offset removes
+// the ambiguity at the boundary instead of resolving it with a guess.
+export const ISO_INSTANT_PATTERN =
+  /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{1,3})?(Z|[+-]\d{2}:\d{2})$/;
+
+export function isUnambiguousIsoInstant(value: string): boolean {
+  return ISO_INSTANT_PATTERN.test(value);
+}
+
+/**
+ * Parses a client-supplied instant into the `Date` it represents, via the
+ * same Luxon zone-pinned path (see `toDateTime`) every other instant in
+ * this module goes through -- never the native `Date` constructor, whose
+ * offset-less-string behavior depends on the host process's local
+ * timezone (`TZ`). Throws the same `Error` `toDateTime` throws for an
+ * unparseable string; callers that accept untrusted input should validate
+ * with `isUnambiguousIsoInstant` first (as the API's DTOs do) so this is
+ * unreachable in practice rather than something to catch defensively.
+ */
+export function parseIsoInstant(iso: string): Date {
+  return toDateTime(iso).toJSDate();
+}
+
 function requireIso(dt: DateTime): string {
   const iso = dt.toUTC().toISO();
   if (!iso) {
