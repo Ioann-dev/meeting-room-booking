@@ -234,12 +234,22 @@ function forbiddenCancellationError(): ForbiddenException {
 // Prisma-native unique/foreign-key case) doesn't map to one fixed, stable
 // Prisma error code across versions -- the constraint name embedded in the
 // underlying Postgres error is the one thing guaranteed not to change.
+//
+// A GiST exclusion constraint's overlap check under genuinely concurrent
+// inserts for the same range can also surface as a Postgres deadlock
+// (SQLSTATE 40P01, "deadlock detected") rather than a clean exclusion
+// violation (23P01) -- confirmed empirically by the concurrency test, which
+// reproduces it reliably. Either outcome means the same thing from the
+// caller's perspective: another request is contending for this exact
+// room/slot, so both map to the same conflict response.
 function isOverlapConstraintViolation(error: unknown): boolean {
   if (error instanceof Prisma.PrismaClientKnownRequestError) {
     const constraint = error.meta?.constraint;
     return (
       (typeof constraint === 'string' && constraint.includes('Booking_no_overlap')) ||
-      error.message.includes('Booking_no_overlap')
+      error.message.includes('Booking_no_overlap') ||
+      error.message.includes('40P01') ||
+      error.message.toLowerCase().includes('deadlock')
     );
   }
   return false;
