@@ -1,14 +1,25 @@
-import { ApiStatus } from '@/components/api-status';
-import { AccountStatus } from '@/components/account-status';
-import { OfficeZoneNotice } from '@/components/office-zone-notice';
+'use client';
+
+import { useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { Spinner } from '@/components/ui/spinner';
+import { useCurrentUser } from '@/hooks/use-current-user';
 
 export default function Home() {
+  const router = useRouter();
+  const { status } = useCurrentUser();
+
+  useEffect(() => {
+    if (status === 'authenticated') {
+      router.replace('/schedule');
+    } else if (status === 'unauthenticated') {
+      router.replace('/login');
+    }
+  }, [status, router]);
+
   return (
-    <main className="mx-auto flex max-w-lg flex-col gap-6 px-4 py-12">
-      <h1 className="text-2xl font-semibold">Meeting Room Booking</h1>
-      <ApiStatus />
-      <AccountStatus />
-      <OfficeZoneNotice />
-    </main>
+    <div className="flex min-h-screen items-center justify-center">
+      <Spinner className="h-6 w-6 text-ink-faint" />
+    </div>
   );
 }
