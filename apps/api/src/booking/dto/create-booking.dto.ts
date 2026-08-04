@@ -1,10 +1,41 @@
-import { Transform } from 'class-transformer';
-import { IsISO8601, IsString, IsUUID, Length, Matches } from 'class-validator';
-import { BOOKING_TITLE_MAX_LENGTH, BOOKING_TITLE_MIN_LENGTH, ISO_INSTANT_PATTERN } from 'shared';
+import { Transform, Type } from 'class-transformer';
+import {
+  IsISO8601,
+  IsInt,
+  IsOptional,
+  IsString,
+  IsUUID,
+  Length,
+  Matches,
+  Max,
+  Min,
+  ValidateNested,
+} from 'class-validator';
+import {
+  BOOKING_TITLE_MAX_LENGTH,
+  BOOKING_TITLE_MIN_LENGTH,
+  ISO_INSTANT_PATTERN,
+  RECURRENCE_MAX_OCCURRENCES,
+  RECURRENCE_MIN_OCCURRENCES,
+} from 'shared';
 import { trimStringValue } from '../../auth/trim.transform';
 
 const INSTANT_FORMAT_MESSAGE =
   'must be an ISO-8601 date-time with an explicit UTC offset or "Z" (e.g. 2026-06-01T09:00:00.000Z)';
+
+// The weekday and time-of-day come from startAt/endAt themselves (e.g.
+// "every Tuesday 09:00-09:30" is implied by a Tuesday 09:00-09:30 startAt/
+// endAt) -- occurrenceCount is the only additional input recurrence needs.
+export class RecurrenceInputDto {
+  @IsInt()
+  @Min(RECURRENCE_MIN_OCCURRENCES, {
+    message: `occurrenceCount must be at least ${RECURRENCE_MIN_OCCURRENCES}`,
+  })
+  @Max(RECURRENCE_MAX_OCCURRENCES, {
+    message: `occurrenceCount must be at most ${RECURRENCE_MAX_OCCURRENCES}`,
+  })
+  occurrenceCount!: number;
+}
 
 export class CreateBookingDto {
   @Transform(trimStringValue)
@@ -30,4 +61,11 @@ export class CreateBookingDto {
   @IsISO8601({ strict: true }, { message: 'endAt must be a valid ISO-8601 date-time' })
   @Matches(ISO_INSTANT_PATTERN, { message: `endAt ${INSTANT_FORMAT_MESSAGE}` })
   endAt!: string;
+
+  // Absent: a single booking (Phase 05 behavior, unchanged). Present: a
+  // weekly recurring series anchored at startAt/endAt (Phase 06).
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => RecurrenceInputDto)
+  recurrence?: RecurrenceInputDto;
 }

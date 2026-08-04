@@ -19,8 +19,36 @@ export interface BookingSummary {
   endAt: string;
   authorName: string;
   isOwnBooking: boolean;
-  /** Set once recurrence (Phase 06) exists; always null until then. */
+  /**
+   * Non-null when this booking is one occurrence of a weekly recurring
+   * series; the UI uses it to decide whether to offer a "cancel this
+   * occurrence vs. cancel the whole series" choice.
+   */
   seriesId: string | null;
+}
+
+// Not otherwise specified by the participant spec beyond "e.g. 8
+// occurrences"; a single occurrence isn't a recurrence, and an upper bound
+// keeps one request from generating an unbounded number of rows in one
+// transaction.
+export const RECURRENCE_MIN_OCCURRENCES = 2;
+export const RECURRENCE_MAX_OCCURRENCES = 52;
+
+export interface RecurrenceInput {
+  occurrenceCount: number;
+}
+
+/**
+ * Returned by POST /bookings instead of a single BookingSummary when the
+ * request included a `recurrence` input. Structurally distinct from
+ * BookingSummary (no top-level `id`), so a client can tell which shape it
+ * got without a separate discriminant field.
+ */
+export interface BookingSeriesSummary {
+  seriesId: string;
+  roomId: string;
+  occurrenceCount: number;
+  bookings: BookingSummary[];
 }
 
 export interface RoomScheduleResponse {
@@ -44,6 +72,11 @@ export const BOOKING_ERROR_CODES = {
   BOOKING_CONFLICT: 'BOOKING_CONFLICT',
   EMAIL_NOT_VERIFIED: 'EMAIL_NOT_VERIFIED',
   FORBIDDEN_CANCELLATION: 'FORBIDDEN_CANCELLATION',
+  // Distinct from BOOKING_CONFLICT: a series conflict identifies which
+  // occurrence of the recurring pattern collided, since "the third Tuesday
+  // conflicts" is a different, more useful message than the single-booking
+  // "this slot is booked" for a request that was never about one slot.
+  SERIES_CONFLICT: 'SERIES_CONFLICT',
 } as const;
 
 export type BookingErrorCode = (typeof BOOKING_ERROR_CODES)[keyof typeof BOOKING_ERROR_CODES];
