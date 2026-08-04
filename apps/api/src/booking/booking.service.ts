@@ -82,10 +82,20 @@ export class BookingService {
 
     // Fast, non-racy pre-check for the overwhelmingly common non-concurrent
     // case: reuse the same shared overlap predicate the interval unit tests
-    // cover, applied over this room's current active bookings, so the rule
-    // can never drift from the one the exclusion constraint below encodes.
+    // cover, applied over this room's active bookings, so the rule can
+    // never drift from the one the exclusion constraint below encodes. The
+    // `startAt < endAt AND endAt > startAt` filter is the same half-open
+    // overlap inequality expressed as a query bound -- it narrows the rows
+    // fetched to a superset of anything that could possibly overlap, so
+    // this stays a query optimization, not a second, potentially-drifting
+    // copy of the overlap rule: intervalsOverlap is still the decider.
     const activeBookings = await this.prisma.booking.findMany({
-      where: { roomId: dto.roomId, status: BookingStatus.ACTIVE },
+      where: {
+        roomId: dto.roomId,
+        status: BookingStatus.ACTIVE,
+        startAt: { lt: endAt },
+        endAt: { gt: startAt },
+      },
       select: { startAt: true, endAt: true },
     });
     if (activeBookings.some((b) => intervalsOverlap(startAt, endAt, b.startAt, b.endAt))) {

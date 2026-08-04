@@ -269,6 +269,21 @@ describe('BookingService.create', () => {
       await expect(service.create(buildDto(), REQUESTER)).resolves.toBeDefined();
     });
 
+    it('bounds the pre-check query to the requested interval instead of loading every active booking', async () => {
+      const findManyBooking = jest.fn().mockResolvedValue([]);
+      const service = buildService({ findManyBooking });
+
+      await service.create(buildDto(), REQUESTER);
+
+      const [callArgs] = findManyBooking.mock.calls[0] as [
+        { where: { roomId: string; status: string; startAt: { lt: Date }; endAt: { gt: Date } } },
+      ];
+      expect(callArgs.where.roomId).toBe('room-1');
+      expect(callArgs.where.status).toBe('ACTIVE');
+      expect(callArgs.where.startAt).toEqual({ lt: new Date('2026-06-01T06:30:00.000Z') }); // fixture's endAt
+      expect(callArgs.where.endAt).toEqual({ gt: new Date('2026-06-01T06:00:00.000Z') }); // fixture's startAt
+    });
+
     // These fixtures reproduce the *actual* error shape @prisma/adapter-pg
     // (Prisma 7.9.1) raises for the Booking_no_overlap exclusion
     // constraint, captured by directly triggering it against a real
