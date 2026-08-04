@@ -3,6 +3,8 @@
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
+import { Alert } from '@/components/ui/alert';
+import { Spinner } from '@/components/ui/spinner';
 import { ApiError } from '@/lib/api-error';
 import { verifyEmail } from '@/lib/auth-client';
 
@@ -43,10 +45,8 @@ export function VerifyEmailStatus() {
   if (!token) {
     return (
       <div className="flex flex-col gap-3">
-        <p role="alert" className="text-red-800">
-          This verification link is missing its token.
-        </p>
-        <Link href="/" className="font-medium underline">
+        <Alert variant="error">This verification link is missing its token.</Alert>
+        <Link href="/" className="text-sm font-medium text-accent hover:text-accent-strong">
           Return home
         </Link>
       </div>
@@ -54,14 +54,19 @@ export function VerifyEmailStatus() {
   }
 
   if (status === 'verifying') {
-    return <p role="status">Verifying your email…</p>;
+    return (
+      <p role="status" className="flex items-center gap-2 text-sm text-ink-subtle">
+        <Spinner className="h-4 w-4" />
+        Verifying your email…
+      </p>
+    );
   }
 
   if (status === 'success') {
     return (
       <div className="flex flex-col gap-3">
-        <p role="status">Your email is now verified.</p>
-        <Link href="/" className="font-medium underline">
+        <Alert variant="success">Your email is now verified.</Alert>
+        <Link href="/" className="text-sm font-medium text-accent hover:text-accent-strong">
           Return home
         </Link>
       </div>
@@ -70,10 +75,8 @@ export function VerifyEmailStatus() {
 
   return (
     <div className="flex flex-col gap-3">
-      <p role="alert" className="text-red-800">
-        {message}
-      </p>
-      <Link href="/" className="font-medium underline">
+      <Alert variant="error">{message}</Alert>
+      <Link href="/" className="text-sm font-medium text-accent hover:text-accent-strong">
         Return home
       </Link>
     </div>

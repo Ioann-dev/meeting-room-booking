@@ -3,6 +3,10 @@
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { FormEvent, useState } from 'react';
+import { Alert } from '@/components/ui/alert';
+import { Button } from '@/components/ui/button';
+import { FormField } from '@/components/ui/form-field';
+import { Input } from '@/components/ui/input';
 import { ApiError } from '@/lib/api-error';
 import { login } from '@/lib/auth-client';
 
@@ -43,7 +47,7 @@ export default function LoginPage() {
     setPending(true);
     try {
       await login({ email, password });
-      router.push('/');
+      router.push('/schedule');
       router.refresh();
     } catch (error) {
       setServerError(error instanceof ApiError ? error.messages.join(' ') : 'Login failed');
@@ -53,83 +57,54 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="mx-auto flex min-h-screen max-w-sm flex-col justify-center gap-6 px-4 py-12">
-      <div>
-        <h1 className="text-2xl font-semibold">Log in</h1>
-        <p className="mt-1 text-sm text-gray-600">
-          Need an account?{' '}
-          <Link href="/register" className="font-medium underline">
-            Register
-          </Link>
-        </p>
-      </div>
+    <main className="flex min-h-screen flex-col items-center justify-center gap-8 px-4 py-12">
+      <Link href="/" className="text-sm font-semibold tracking-tight text-ink">
+        Meeting Rooms
+      </Link>
 
-      <form
-        className="flex flex-col gap-4"
-        onSubmit={(event) => void handleSubmit(event)}
-        noValidate
-      >
-        {serverError && (
-          <p
-            role="alert"
-            className="rounded border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-800"
-          >
-            {serverError}
+      <div className="w-full max-w-sm rounded-lg border border-border bg-surface p-8">
+        <div className="mb-6">
+          <h1 className="text-lg font-semibold text-ink">Log in</h1>
+          <p className="mt-1 text-sm text-ink-subtle">
+            Need an account?{' '}
+            <Link href="/register" className="font-medium text-accent hover:text-accent-strong">
+              Register
+            </Link>
           </p>
-        )}
-
-        <div className="flex flex-col gap-1">
-          <label htmlFor="email" className="text-sm font-medium">
-            Email
-          </label>
-          <input
-            id="email"
-            name="email"
-            type="email"
-            autoComplete="email"
-            value={email}
-            onChange={(event) => setEmail(event.target.value)}
-            aria-invalid={Boolean(fieldErrors.email)}
-            aria-describedby={fieldErrors.email ? 'email-error' : undefined}
-            className="rounded border border-gray-300 px-3 py-2 text-sm"
-          />
-          {fieldErrors.email && (
-            <p id="email-error" className="text-sm text-red-700">
-              {fieldErrors.email}
-            </p>
-          )}
         </div>
 
-        <div className="flex flex-col gap-1">
-          <label htmlFor="password" className="text-sm font-medium">
-            Password
-          </label>
-          <input
-            id="password"
-            name="password"
-            type="password"
-            autoComplete="current-password"
-            value={password}
-            onChange={(event) => setPassword(event.target.value)}
-            aria-invalid={Boolean(fieldErrors.password)}
-            aria-describedby={fieldErrors.password ? 'password-error' : undefined}
-            className="rounded border border-gray-300 px-3 py-2 text-sm"
-          />
-          {fieldErrors.password && (
-            <p id="password-error" className="text-sm text-red-700">
-              {fieldErrors.password}
-            </p>
-          )}
-        </div>
-
-        <button
-          type="submit"
-          disabled={pending}
-          className="rounded bg-gray-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
+        <form
+          className="flex flex-col gap-4"
+          onSubmit={(event) => void handleSubmit(event)}
+          noValidate
         >
-          {pending ? 'Logging in…' : 'Log in'}
-        </button>
-      </form>
+          {serverError && <Alert variant="error">{serverError}</Alert>}
+
+          <FormField label="Email" error={fieldErrors.email}>
+            <Input
+              name="email"
+              type="email"
+              autoComplete="email"
+              value={email}
+              onChange={(event) => setEmail(event.target.value)}
+            />
+          </FormField>
+
+          <FormField label="Password" error={fieldErrors.password}>
+            <Input
+              name="password"
+              type="password"
+              autoComplete="current-password"
+              value={password}
+              onChange={(event) => setPassword(event.target.value)}
+            />
+          </FormField>
+
+          <Button type="submit" loading={pending} className="mt-2 w-full">
+            Log in
+          </Button>
+        </form>
+      </div>
     </main>
   );
 }

@@ -1,5 +1,7 @@
 'use client';
 
+import { Button } from '@/components/ui/button';
+
 export default function ErrorPage({
   error,
   unstable_retry,
@@ -8,12 +10,12 @@ export default function ErrorPage({
   unstable_retry: () => void;
 }) {
   return (
-    <main>
-      <h2>Something went wrong</h2>
-      <p>{error.message || 'An unexpected error occurred.'}</p>
-      <button type="button" onClick={() => unstable_retry()}>
+    <main className="flex min-h-screen flex-col items-center justify-center gap-3 px-4 text-center">
+      <h1 className="text-lg font-semibold text-ink">Something went wrong</h1>
+      <p className="text-sm text-ink-subtle">{error.message || 'An unexpected error occurred.'}</p>
+      <Button type="button" variant="secondary" onClick={() => unstable_retry()}>
         Try again
-      </button>
+      </Button>
     </main>
   );
 }
