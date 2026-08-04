@@ -4,8 +4,10 @@ import {
   getOfficeWeekBoundaries,
   intervalsOverlap,
   isAlignedToSlot,
+  isUnambiguousIsoInstant,
   isValidDuration,
   isWithinOfficeHours,
+  parseIsoInstant,
   toZonedParts,
   zonedWallTimeToUtc,
 } from './time';
@@ -296,5 +298,97 @@ describe('intervalsOverlap', () => {
         '2026-06-02T06:30:00.000Z', // Tue 09:30 Kyiv
       ),
     ).toBe(false);
+  });
+});
+
+describe('parseIsoInstant (host-timezone independence)', () => {
+  // A native `new Date('2099-06-20T06:00:00')` (no offset) resolves in the
+  // host process's local zone -- confirmed to produce three different UTC
+  // instants (03:00Z, 04:00Z, 06:00Z) across Europe/Kyiv, Europe/Berlin and
+  // UTC host TZs during this fix's investigation. parseIsoInstant must not
+  // reproduce that: it goes through the same Luxon `{ zone: 'utc' }` path
+  // as every other instant in this module, so the result is fixed by the
+  // string alone, never by `process.env.TZ`.
+  const HOST_TIMEZONES = [
+    'UTC',
+    'Europe/Kyiv',
+    'Europe/Berlin',
+    'Pacific/Kiritimati',
+    'America/New_York',
+  ];
+  const originalTz = process.env.TZ;
+
+  afterEach(() => {
+    process.env.TZ = originalTz;
+  });
+
+  it('resolves an offset-bearing instant identically regardless of host TZ', () => {
+    const results = HOST_TIMEZONES.map((tz) => {
+      process.env.TZ = tz;
+      return parseIsoInstant('2026-06-01T09:00:00.000+03:00').toISOString();
+    });
+    expect(new Set(results).size).toBe(1);
+    expect(results[0]).toBe('2026-06-01T06:00:00.000Z');
+  });
+
+  it('resolves a Z-suffixed instant identically regardless of host TZ', () => {
+    const results = HOST_TIMEZONES.map((tz) => {
+      process.env.TZ = tz;
+      return parseIsoInstant('2026-06-01T06:00:00.000Z').toISOString();
+    });
+    expect(new Set(results).size).toBe(1);
+    expect(results[0]).toBe('2026-06-01T06:00:00.000Z');
+  });
+
+  it('interprets even a naive (offset-less) string as UTC regardless of host TZ', () => {
+    // parseIsoInstant itself is defense-in-depth: it must never depend on
+    // TZ even for input the API layer's ISO_INSTANT_PATTERN would reject
+    // before this function is ever reached.
+    const results = HOST_TIMEZONES.map((tz) => {
+      process.env.TZ = tz;
+      return parseIsoInstant('2026-06-01T06:00:00.000').toISOString();
+    });
+    expect(new Set(results).size).toBe(1);
+    expect(results[0]).toBe('2026-06-01T06:00:00.000Z');
+  });
+
+  it('throws on an unparseable string rather than silently producing an invalid date', () => {
+    expect(() => parseIsoInstant('not-a-date')).toThrow();
+  });
+});
+
+describe('isUnambiguousIsoInstant / ISO_INSTANT_PATTERN', () => {
+  it('accepts an extended-format instant with an explicit Z', () => {
+    expect(isUnambiguousIsoInstant('2026-06-01T06:00:00.000Z')).toBe(true);
+    expect(isUnambiguousIsoInstant('2026-06-01T06:00:00Z')).toBe(true);
+  });
+
+  it('accepts an extended-format instant with an explicit numeric offset', () => {
+    expect(isUnambiguousIsoInstant('2026-06-01T09:00:00.000+03:00')).toBe(true);
+    expect(isUnambiguousIsoInstant('2026-06-01T09:00:00-05:00')).toBe(true);
+  });
+
+  it('rejects an offset-less (ambiguous) date-time', () => {
+    // The exact shape an HTML <input type="datetime-local"> produces --
+    // silently ambiguous about which zone it's in.
+    expect(isUnambiguousIsoInstant('2026-06-01T06:00:00')).toBe(false);
+    expect(isUnambiguousIsoInstant('2026-06-01T06:00:00.000')).toBe(false);
+  });
+
+  it('rejects ISO-8601 basic format (no separators)', () => {
+    expect(isUnambiguousIsoInstant('20260601T060000Z')).toBe(false);
+  });
+
+  it('rejects an ISO-8601 week-date', () => {
+    expect(isUnambiguousIsoInstant('2026-W23-1')).toBe(false);
+  });
+
+  it('rejects a date-only string', () => {
+    expect(isUnambiguousIsoInstant('2026-06-01')).toBe(false);
+  });
+
+  it('rejects a completely malformed string', () => {
+    expect(isUnambiguousIsoInstant('not-a-date')).toBe(false);
+    expect(isUnambiguousIsoInstant('')).toBe(false);
   });
 });

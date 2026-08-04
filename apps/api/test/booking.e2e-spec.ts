@@ -226,6 +226,52 @@ describe('Booking (e2e)', () => {
         .expect(400);
     });
 
+    // Regression coverage for a fix: these payloads previously reached
+    // `new Date(...)` in the service (host-timezone-dependent, or
+    // "Invalid Date" for the malformed shapes below), producing a wrong
+    // stored instant or an unhandled 500 instead of a clean validation
+    // rejection. The DTO now requires an explicit UTC offset/"Z" and
+    // rejects ambiguous or malformed instants before the service ever
+    // parses them.
+    describe('malformed and ambiguous timestamps', () => {
+      it.each([
+        ['ISO-8601 basic format (no separators)', '20990620T060000Z'],
+        ['an ISO-8601 week-date', '2099-W25-1'],
+        ['an offset-less date-time', '2099-06-20T06:00:00'],
+        ['a date-only string', '2099-06-20'],
+        ['a completely malformed string', 'not-a-date'],
+      ])('rejects startAt as %s with 400, not 500', async (_label, startAt) => {
+        const { cookie } = await registerVerifiedUser('badtime');
+
+        const response = await request(app.getHttpServer())
+          .post('/bookings')
+          .set('Cookie', cookie)
+          .send({ title: 'Bad Timestamp', roomId, startAt, endAt: '2099-06-20T06:30:00.000Z' })
+          .expect(400);
+
+        expect((response.body as { statusCode: number }).statusCode).toBe(400);
+      });
+
+      it('accepts an explicit non-zero UTC offset equivalent to a Z instant', async () => {
+        const { cookie } = await registerVerifiedUser('offset-ok');
+
+        const response = await request(app.getHttpServer())
+          .post('/bookings')
+          .set('Cookie', cookie)
+          .send({
+            title: 'Offset Form',
+            roomId,
+            startAt: '2099-06-21T09:00:00.000+03:00', // 06:00 UTC, 09:00 Kyiv
+            endAt: '2099-06-21T09:30:00.000+03:00',
+          })
+          .expect(201);
+
+        const body = response.body as BookingSummary;
+        expect(body.startAt).toBe('2099-06-21T06:00:00.000Z');
+        expect(body.endAt).toBe('2099-06-21T06:30:00.000Z');
+      });
+    });
+
     it('rejects an unverified user with 403', async () => {
       const email = uniqueEmail('unverified');
       const registerResponse = await request(app.getHttpServer())
