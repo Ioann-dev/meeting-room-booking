@@ -23,7 +23,7 @@ this is the cross-phase tracking view.
       standardized error codes; overlap unit tests; create/cancel integration tests;
       concurrency race test. Post-implementation audit fixes: host-timezone-independent
       instant parsing, real Prisma/Postgres conflict-error matching, bounded overlap query.
-- [ ] **06 — Recurrence**: weekly recurrence contract; DST-safe occurrence generation;
+- [x] **06 — Recurrence**: weekly recurrence contract; DST-safe occurrence generation;
       transactional series creation with conflict rollback; single-occurrence and
       whole-series cancellation; recurrence metadata on schedule responses; recurrence
       tests; series semantics doc.

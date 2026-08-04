@@ -83,23 +83,49 @@ Summarized fully in `docs/decisions/0001-booking-overlap.md`. In short:
 
 ## Recurring-booking model (bonus)
 
-- A `BookingSeries` row records the recurrence rule (weekly, a fixed weekday, an occurrence
-  count) and owner. Each concrete occurrence is a normal `Booking` row with a nullable
-  `seriesId` foreign key.
+- A `BookingSeries` row records the recurrence rule as office-local wall-clock components
+  (`weekday`, `startMinute`, `endMinute`, `occurrenceCount`) plus `ownerId`/`roomId` — not a
+  UTC start time — so the rule survives DST regeneration correctly. Each concrete occurrence
+  is a normal `Booking` row with a `seriesId` foreign key set to that series.
+- The client requests a series by adding a `recurrence: { occurrenceCount }` field to the
+  normal create-booking request; the recurring weekday and time-of-day are implied by that
+  same request's `startAt`/`endAt` (occurrence 0), matching the spec's "every Tuesday, 8
+  occurrences" phrasing without a redundant separate weekday input.
+  `occurrenceCount` is bounded 2–52: a single occurrence isn't a recurrence, and the upper
+  bound (one year of weekly occurrences) keeps one request from generating an unbounded
+  number of rows in a single transaction. `POST /bookings` returns a `BookingSummary` when
+  `recurrence` is absent (unchanged Phase 05 behavior) or a `BookingSeriesSummary` — the
+  series id, room, occurrence count, and every created occurrence — when it's present; the
+  two shapes are structurally distinct (`BookingSeriesSummary` has no top-level `id`), so no
+  discriminant field is needed.
 - Series creation computes every occurrence's UTC instant by adding weeks to a Luxon
   `DateTime` that is anchored in `Europe/Kyiv`, then converting each resulting local
   wall-clock instant to UTC — never by adding a fixed `7 * 24h` in UTC. The two are not
   equivalent across a Kyiv DST transition (the fixed-duration approach would land 09:00 local
   bookings an hour off local wall-clock time on the far side of the transition); anchoring the
   arithmetic in the office zone and converting per-occurrence is what keeps every occurrence
-  at the same office-local time regardless of which side of a transition it falls on. All
-  occurrences are inserted in one transaction; if any occurrence conflicts, the whole series
-  is rejected and rolled back — no partial series is ever persisted (see
+  at the same office-local time regardless of which side of a transition it falls on. Every
+  occurrence is validated with the exact same rules a single booking is (alignment, duration,
+  office hours, future) — one shared validator, not a second copy that could drift.
+- Overlap protection for a series has the same two layers as a single booking (see below): a
+  bounded pre-check across the whole series window using the shared `intervalsOverlap`
+  predicate, then the `BookingSeries` row and every occurrence are inserted in one Prisma
+  interactive transaction, so a race the pre-check misses still hits the database's exclusion
+  constraint and rolls back the entire transaction rather than leaving a partial series. Either
+  layer's rejection is a `409 SERIES_CONFLICT` naming the specific occurrence that collided
+  (index, office-local date/time) — distinct from the single-booking `BOOKING_CONFLICT`, since
+  "occurrence 3 of 8 conflicts" is materially more useful than a generic "this slot is booked"
+  for a request that was never about one slot. No partial series is ever persisted (see
   `docs/implementation-checklist.md` for why all-or-nothing was chosen over skipping the
   conflicting occurrence).
-- Cancellation operates at two levels: cancelling one `Booking` only touches that row;
-  cancelling a series soft-cancels every still-active `Booking` with that `seriesId`. Both
-  paths reuse the same ownership check as single-booking cancellation.
+- Cancellation operates at two levels. Cancelling one occurrence needs no series-specific code
+  at all: an occurrence is just a `Booking` row with a `seriesId`, so the existing
+  `POST /bookings/:id/cancel` already handles it. Cancelling a series
+  (`POST /bookings/series/:seriesId/cancel`) soft-cancels every still-active `Booking` with
+  that `seriesId` and flips `BookingSeries.status` to `CANCELLED`, both in one transaction so
+  an interrupted cancellation can never leave the two inconsistent. Both paths check ownership
+  before the idempotent already-cancelled short-circuit, matching single-booking cancellation's
+  invariant that a non-owner never learns whether something was already cancelled.
 
 ## Notification model (bonus)
 
