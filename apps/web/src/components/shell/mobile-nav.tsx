@@ -6,7 +6,9 @@ import { usePathname } from 'next/navigation';
 import { useState, type RefObject } from 'react';
 import type { CurrentUser } from 'shared';
 import { Button } from '@/components/ui/button';
+import { useToast } from '@/components/ui/toast';
 import { cn } from '@/lib/cn';
+import { ApiError } from '@/lib/api-error';
 import { logout } from '@/lib/auth-client';
 
 interface MobileNavProps {
@@ -22,14 +24,22 @@ const NAV_ITEMS = [{ href: '/schedule', label: 'Schedule' }] as const;
 export function MobileNav({ open, onOpenChange, user, onLoggedOut, triggerRef }: MobileNavProps) {
   const pathname = usePathname();
   const [loggingOut, setLoggingOut] = useState(false);
+  const { showToast } = useToast();
 
   async function handleLogout() {
     setLoggingOut(true);
     try {
       await logout();
-    } finally {
       onOpenChange(false);
       onLoggedOut();
+    } catch (error) {
+      showToast(
+        error instanceof ApiError
+          ? error.messages.join(' ')
+          : "Couldn't log out. Please try again.",
+        'error',
+      );
+    } finally {
       setLoggingOut(false);
     }
   }

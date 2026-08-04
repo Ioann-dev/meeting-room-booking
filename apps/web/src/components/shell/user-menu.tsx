@@ -3,6 +3,8 @@
 import { useState } from 'react';
 import type { CurrentUser } from 'shared';
 import { Button } from '@/components/ui/button';
+import { useToast } from '@/components/ui/toast';
+import { ApiError } from '@/lib/api-error';
 import { logout } from '@/lib/auth-client';
 
 interface UserMenuProps {
@@ -21,13 +23,21 @@ function initials(name: string): string {
 
 export function UserMenu({ user, onLoggedOut }: UserMenuProps) {
   const [loggingOut, setLoggingOut] = useState(false);
+  const { showToast } = useToast();
 
   async function handleLogout() {
     setLoggingOut(true);
     try {
       await logout();
-    } finally {
       onLoggedOut();
+    } catch (error) {
+      showToast(
+        error instanceof ApiError
+          ? error.messages.join(' ')
+          : "Couldn't log out. Please try again.",
+        'error',
+      );
+    } finally {
       setLoggingOut(false);
     }
   }
