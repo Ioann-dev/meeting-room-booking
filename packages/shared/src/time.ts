@@ -188,6 +188,41 @@ export function isValidDuration(
   return durationMinutes >= minMinutes && durationMinutes <= maxMinutes;
 }
 
+export interface WeeklyOccurrence {
+  startUtc: string;
+  endUtc: string;
+}
+
+/**
+ * Computes `occurrenceCount` weekly occurrences of a recurring booking,
+ * starting from `firstStart`/`firstEnd` (occurrence 0 is exactly that
+ * pair). Each later occurrence is `firstStart`/`firstEnd` plus a whole
+ * number of *office-local calendar weeks* -- computed by anchoring in
+ * `zone` and adding weeks there with Luxon, never a fixed `7 * 24h` added
+ * in UTC -- so every occurrence keeps the same office-local wall-clock
+ * time-of-day regardless of which side of a DST transition it falls on.
+ * The two approaches are not equivalent: a fixed-duration add would land a
+ * 09:00-local booking an hour off local wall-clock time on the far side of
+ * a Kyiv EET/EEST transition (see docs/architecture.md).
+ */
+export function generateWeeklyOccurrences(
+  firstStart: Instant,
+  firstEnd: Instant,
+  occurrenceCount: number,
+  zone: string = OFFICE_TIMEZONE,
+): WeeklyOccurrence[] {
+  const startLocal = toDateTime(firstStart).setZone(zone);
+  const endLocal = toDateTime(firstEnd).setZone(zone);
+  const occurrences: WeeklyOccurrence[] = [];
+  for (let i = 0; i < occurrenceCount; i++) {
+    occurrences.push({
+      startUtc: requireIso(startLocal.plus({ weeks: i })),
+      endUtc: requireIso(endLocal.plus({ weeks: i })),
+    });
+  }
+  return occurrences;
+}
+
 /**
  * True when half-open intervals [aStart, aEnd) and [bStart, bEnd) share
  * any instant. Two intervals overlap iff `aStart < bEnd && bStart < aEnd`
