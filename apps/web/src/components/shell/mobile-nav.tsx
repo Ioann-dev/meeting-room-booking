@@ -3,7 +3,7 @@
 import * as RadixDialog from '@radix-ui/react-dialog';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useState } from 'react';
+import { useState, type RefObject } from 'react';
 import type { CurrentUser } from 'shared';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/cn';
@@ -14,11 +14,12 @@ interface MobileNavProps {
   onOpenChange: (open: boolean) => void;
   user: CurrentUser;
   onLoggedOut: () => void;
+  triggerRef: RefObject<HTMLButtonElement | null>;
 }
 
 const NAV_ITEMS = [{ href: '/schedule', label: 'Schedule' }] as const;
 
-export function MobileNav({ open, onOpenChange, user, onLoggedOut }: MobileNavProps) {
+export function MobileNav({ open, onOpenChange, user, onLoggedOut, triggerRef }: MobileNavProps) {
   const pathname = usePathname();
   const [loggingOut, setLoggingOut] = useState(false);
 
@@ -37,7 +38,13 @@ export function MobileNav({ open, onOpenChange, user, onLoggedOut }: MobileNavPr
     <RadixDialog.Root open={open} onOpenChange={onOpenChange}>
       <RadixDialog.Portal>
         <RadixDialog.Overlay className="fixed inset-0 z-40 bg-ink/40 md:hidden" />
-        <RadixDialog.Content className="fixed inset-y-0 right-0 z-50 flex w-72 max-w-[85vw] flex-col gap-6 border-l border-border bg-surface p-6 md:hidden">
+        <RadixDialog.Content
+          onCloseAutoFocus={(event) => {
+            event.preventDefault();
+            triggerRef.current?.focus();
+          }}
+          className="fixed inset-y-0 right-0 z-50 flex w-72 max-w-[85vw] flex-col gap-6 border-l border-border bg-surface p-6 md:hidden"
+        >
           <div className="flex items-center justify-between">
             <RadixDialog.Title className="text-sm font-semibold text-ink">Menu</RadixDialog.Title>
             <RadixDialog.Close

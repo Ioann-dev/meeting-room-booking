@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import type { CurrentUser } from 'shared';
 import { cn } from '@/lib/cn';
 import { MobileNav } from './mobile-nav';
@@ -18,6 +18,7 @@ const NAV_ITEMS = [{ href: '/schedule', label: 'Schedule' }] as const;
 export function AppHeader({ user, onLoggedOut }: AppHeaderProps) {
   const pathname = usePathname();
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const mobileNavTriggerRef = useRef<HTMLButtonElement>(null);
 
   return (
     <header className="border-b border-border bg-surface">
@@ -83,6 +84,7 @@ export function AppHeader({ user, onLoggedOut }: AppHeaderProps) {
         </div>
 
         <button
+          ref={mobileNavTriggerRef}
           type="button"
           onClick={() => setMobileNavOpen(true)}
           aria-label="Open menu"
@@ -104,6 +106,7 @@ export function AppHeader({ user, onLoggedOut }: AppHeaderProps) {
         onOpenChange={setMobileNavOpen}
         user={user}
         onLoggedOut={onLoggedOut}
+        triggerRef={mobileNavTriggerRef}
       />
     </header>
   );
