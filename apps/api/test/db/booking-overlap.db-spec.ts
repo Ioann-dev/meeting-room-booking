@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { prisma } from './prisma-test-client';
+import { isOverlapConstraintViolation } from '../../src/booking/booking.service';
 
 async function createRoomAndUser() {
   const unique = randomUUID();
@@ -162,5 +163,61 @@ describe('Booking overlap and adjacency (database-level)', () => {
         },
       }),
     ).resolves.toBeDefined();
+  });
+
+  // Regression coverage for a fix: `isOverlapConstraintViolation` (the
+  // function booking.service.ts uses to map a database-level conflict to a
+  // 409) previously checked `error.meta.constraint`, a field this
+  // driver/Prisma version never populates -- so the check was silently
+  // dead code that a fabricated unit-test fixture didn't catch. This test
+  // triggers a *real* exclusion-constraint violation against Postgres and
+  // feeds the *actual* caught error straight into the production function,
+  // with no fabricated shape anywhere in the chain.
+  it('isOverlapConstraintViolation recognizes a real 23P01 raised by the exclusion constraint', async () => {
+    const { room, user } = await createRoomAndUser();
+
+    await prisma.booking.create({
+      data: {
+        title: 'First',
+        startAt: new Date('2027-01-10T10:00:00.000Z'),
+        endAt: new Date('2027-01-10T11:00:00.000Z'),
+        roomId: room.id,
+        userId: user.id,
+      },
+    });
+
+    let caught: unknown;
+    try {
+      await prisma.booking.create({
+        data: {
+          title: 'Conflict',
+          startAt: new Date('2027-01-10T10:30:00.000Z'),
+          endAt: new Date('2027-01-10T11:30:00.000Z'),
+          roomId: room.id,
+          userId: user.id,
+        },
+      });
+    } catch (error) {
+      caught = error;
+    }
+
+    expect(caught).toBeDefined();
+    expect(isOverlapConstraintViolation(caught)).toBe(true);
+  });
+
+  it('isOverlapConstraintViolation does not misclassify an unrelated constraint violation', async () => {
+    const { room } = await createRoomAndUser();
+
+    let caught: unknown;
+    try {
+      // A duplicate room name violates Room's own unique constraint --
+      // nothing to do with the booking exclusion constraint.
+      await prisma.room.create({ data: { name: room.name, floor: 2, capacity: 8 } });
+    } catch (error) {
+      caught = error;
+    }
+
+    expect(caught).toBeDefined();
+    expect(isOverlapConstraintViolation(caught)).toBe(false);
   });
 });

@@ -4,7 +4,7 @@ import {
   ForbiddenException,
   NotFoundException,
 } from '@nestjs/common';
-import { BookingService } from './booking.service';
+import { BookingService, isOverlapConstraintViolation } from './booking.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateBookingDto } from './dto/create-booking.dto';
 import type { AuthenticatedUser } from '../auth/auth.service';
@@ -269,17 +269,71 @@ describe('BookingService.create', () => {
       await expect(service.create(buildDto(), REQUESTER)).resolves.toBeDefined();
     });
 
-    it('maps a database exclusion-constraint violation to a conflict response', async () => {
-      const create = jest.fn().mockRejectedValue(
-        new Prisma.PrismaClientKnownRequestError('Unique constraint failed', {
-          code: 'P2004',
+    // These fixtures reproduce the *actual* error shape @prisma/adapter-pg
+    // (Prisma 7.9.1) raises for the Booking_no_overlap exclusion
+    // constraint, captured by directly triggering it against a real
+    // Postgres database. Prisma's top-level `.code` is a generic wrapper
+    // (P2039) and `.meta.constraint` is never populated by this driver --
+    // a fixture built from either of those (as an earlier version of this
+    // test was) would pass without proving the real detection logic works.
+    // The real SQLSTATE lives at `.meta.driverAdapterError.cause.code`.
+    function realPrismaConstraintError(sqlState: '23P01' | '40P01', pgMessage: string) {
+      return new Prisma.PrismaClientKnownRequestError(
+        `Invalid \`prisma.booking.create()\` invocation\nDatabase error. Code: \`${sqlState}\`. Message: \`${pgMessage}\``,
+        {
+          code: 'P2039',
           clientVersion: 'test',
-          meta: { constraint: 'Booking_no_overlap' },
-        }),
+          meta: {
+            modelName: 'Booking',
+            driverAdapterError: {
+              name: 'DriverAdapterError',
+              cause: {
+                originalCode: sqlState,
+                originalMessage: pgMessage,
+                kind: 'postgres',
+                code: sqlState,
+                severity: 'ERROR',
+                message: pgMessage,
+              },
+            },
+          },
+        },
       );
+    }
+
+    it('maps a real 23P01 exclusion-constraint violation to a conflict response', async () => {
+      const create = jest
+        .fn()
+        .mockRejectedValue(
+          realPrismaConstraintError(
+            '23P01',
+            'conflicting key value violates exclusion constraint "Booking_no_overlap"',
+          ),
+        );
       const service = buildService({ create });
 
       await expect(service.create(buildDto(), REQUESTER)).rejects.toThrow(ConflictException);
+    });
+
+    it('maps a real 40P01 deadlock (concurrent exclusion-constraint check) to a conflict response', async () => {
+      const create = jest
+        .fn()
+        .mockRejectedValue(realPrismaConstraintError('40P01', 'deadlock detected'));
+      const service = buildService({ create });
+
+      await expect(service.create(buildDto(), REQUESTER)).rejects.toThrow(ConflictException);
+    });
+
+    it('does not treat an unrelated PrismaClientKnownRequestError as a conflict', async () => {
+      const unrelated = new Prisma.PrismaClientKnownRequestError('Unique constraint failed', {
+        code: 'P2002',
+        clientVersion: 'test',
+        meta: { modelName: 'User', target: ['email'] },
+      });
+      const create = jest.fn().mockRejectedValue(unrelated);
+      const service = buildService({ create });
+
+      await expect(service.create(buildDto(), REQUESTER)).rejects.toBe(unrelated);
     });
 
     it('rethrows an unrelated database error unchanged', async () => {
@@ -289,6 +343,53 @@ describe('BookingService.create', () => {
 
       await expect(service.create(buildDto(), REQUESTER)).rejects.toBe(unrelated);
     });
+  });
+});
+
+describe('isOverlapConstraintViolation', () => {
+  it('recognizes the real structured error shape even when the message text gives no hint', () => {
+    // Deliberately opaque messages (no "23P01"/"40P01"/"deadlock"/
+    // "Booking_no_overlap" substring anywhere) so this can only pass via
+    // the structured `meta.driverAdapterError.cause.code` check -- pinning
+    // that check specifically, rather than the message-substring fallback.
+    const conflict = new Prisma.PrismaClientKnownRequestError('Database error, please retry.', {
+      code: 'P2039',
+      clientVersion: 'test',
+      meta: { driverAdapterError: { cause: { code: '23P01' } } },
+    });
+    const deadlock = new Prisma.PrismaClientKnownRequestError('Database error, please retry.', {
+      code: 'P2039',
+      clientVersion: 'test',
+      meta: { driverAdapterError: { cause: { code: '40P01' } } },
+    });
+
+    expect(isOverlapConstraintViolation(conflict)).toBe(true);
+    expect(isOverlapConstraintViolation(deadlock)).toBe(true);
+  });
+
+  it('falls back to message content when the structured field is absent', () => {
+    const withoutStructuredMeta = new Prisma.PrismaClientKnownRequestError(
+      'Database error. Code: `23P01`. Message: `... Booking_no_overlap ...`',
+      { code: 'P2039', clientVersion: 'test' },
+    );
+
+    expect(isOverlapConstraintViolation(withoutStructuredMeta)).toBe(true);
+  });
+
+  it('returns false for an unrelated PrismaClientKnownRequestError', () => {
+    const uniqueViolation = new Prisma.PrismaClientKnownRequestError('Unique constraint failed', {
+      code: 'P2002',
+      clientVersion: 'test',
+      meta: { modelName: 'User', target: ['email'] },
+    });
+
+    expect(isOverlapConstraintViolation(uniqueViolation)).toBe(false);
+  });
+
+  it('returns false for a non-Prisma error', () => {
+    expect(isOverlapConstraintViolation(new Error('connection reset'))).toBe(false);
+    expect(isOverlapConstraintViolation('not an error')).toBe(false);
+    expect(isOverlapConstraintViolation(undefined)).toBe(false);
   });
 });
 
