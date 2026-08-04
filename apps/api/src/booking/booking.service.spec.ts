@@ -397,3 +397,59 @@ describe('BookingService.cancel', () => {
     expect(update).not.toHaveBeenCalled();
   });
 });
+
+describe('standardized error codes', () => {
+  it('carries a machine-readable code alongside the message for each rejection category', async () => {
+    const service = buildService({});
+
+    await expect(
+      service.create(
+        buildDto({ startAt: '2026-06-01T06:15:00.000Z', endAt: '2026-06-01T06:45:00.000Z' }),
+        REQUESTER,
+      ),
+    ).rejects.toMatchObject({ response: { code: 'SLOT_MISALIGNED' } });
+
+    await expect(
+      service.create(
+        // Zero-length: still slot-aligned (start === end), so this exercises
+        // the duration check specifically rather than tripping alignment.
+        buildDto({ startAt: '2026-06-01T06:00:00.000Z', endAt: '2026-06-01T06:00:00.000Z' }),
+        REQUESTER,
+      ),
+    ).rejects.toMatchObject({ response: { code: 'DURATION_INVALID' } });
+
+    jest.setSystemTime(new Date('2026-06-02T00:00:00.000Z'));
+    await expect(service.create(buildDto(), REQUESTER)).rejects.toMatchObject({
+      response: { code: 'PAST_START' },
+    });
+    jest.setSystemTime(new Date('2026-01-01T00:00:00.000Z'));
+
+    await expect(
+      service.create(
+        buildDto({ startAt: '2026-06-01T05:30:00.000Z', endAt: '2026-06-01T06:30:00.000Z' }),
+        REQUESTER,
+      ),
+    ).rejects.toMatchObject({ response: { code: 'OUTSIDE_OFFICE_HOURS' } });
+
+    const overlapping = buildService({
+      findManyBooking: jest.fn().mockResolvedValue([
+        {
+          startAt: new Date('2026-06-01T06:15:00.000Z'),
+          endAt: new Date('2026-06-01T07:00:00.000Z'),
+        },
+      ]),
+    });
+    await expect(overlapping.create(buildDto(), REQUESTER)).rejects.toMatchObject({
+      response: { code: 'BOOKING_CONFLICT' },
+    });
+
+    const foreignCancel = buildService({
+      findUniqueBooking: jest
+        .fn()
+        .mockResolvedValue({ id: 'booking-1', userId: 'owner-1', status: 'ACTIVE' }),
+    });
+    await expect(foreignCancel.cancel('booking-1', 'someone-else')).rejects.toMatchObject({
+      response: { code: 'FORBIDDEN_CANCELLATION' },
+    });
+  });
+});

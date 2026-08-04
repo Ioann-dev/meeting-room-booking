@@ -31,3 +31,24 @@ export interface RoomScheduleResponse {
   weekEndUtc: string;
   bookings: BookingSummary[];
 }
+
+// Machine-readable discriminators for the booking-rejection categories the
+// spec calls out by name, carried alongside the human-readable `message` in
+// every rejection response body -- so a client can branch on `code` without
+// parsing prose, while the message stays free to read naturally.
+export const BOOKING_ERROR_CODES = {
+  SLOT_MISALIGNED: 'SLOT_MISALIGNED',
+  DURATION_INVALID: 'DURATION_INVALID',
+  PAST_START: 'PAST_START',
+  OUTSIDE_OFFICE_HOURS: 'OUTSIDE_OFFICE_HOURS',
+  BOOKING_CONFLICT: 'BOOKING_CONFLICT',
+  EMAIL_NOT_VERIFIED: 'EMAIL_NOT_VERIFIED',
+  FORBIDDEN_CANCELLATION: 'FORBIDDEN_CANCELLATION',
+} as const;
+
+export type BookingErrorCode = (typeof BOOKING_ERROR_CODES)[keyof typeof BOOKING_ERROR_CODES];
+
+export interface BookingErrorBody {
+  code: BookingErrorCode;
+  message: string;
+}

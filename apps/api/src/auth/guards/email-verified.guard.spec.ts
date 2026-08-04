@@ -31,6 +31,20 @@ describe('EmailVerifiedGuard', () => {
     expect(() => guard.canActivate(context)).toThrow(ForbiddenException);
   });
 
+  it('carries the EMAIL_NOT_VERIFIED code in the rejection body', () => {
+    const context = contextWithUser({ ...baseUser, emailVerifiedAt: null });
+    try {
+      guard.canActivate(context);
+      throw new Error('expected canActivate to throw');
+    } catch (error) {
+      expect(error).toBeInstanceOf(ForbiddenException);
+      expect((error as ForbiddenException).getResponse()).toEqual({
+        code: 'EMAIL_NOT_VERIFIED',
+        message: 'Please verify your email address to continue',
+      });
+    }
+  });
+
   it('rejects with 401, not a crash, if used without SessionGuard populating request.user', () => {
     const context = contextWithUser(undefined);
     expect(() => guard.canActivate(context)).toThrow(UnauthorizedException);

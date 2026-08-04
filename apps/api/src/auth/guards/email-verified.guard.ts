@@ -5,11 +5,12 @@ import {
   Injectable,
   UnauthorizedException,
 } from '@nestjs/common';
+import { BOOKING_ERROR_CODES } from 'shared';
 import { AuthenticatedRequest } from '../authenticated-request';
 
-// Not wired to any route yet -- booking creation (Phase 05) will compose
-// this after SessionGuard, e.g. @UseGuards(SessionGuard, EmailVerifiedGuard),
-// to require a verified email before creating a booking.
+// Wired onto POST /bookings (Phase 05) via
+// @UseGuards(SessionGuard, EmailVerifiedGuard) to require a verified email
+// before creating a booking.
 @Injectable()
 export class EmailVerifiedGuard implements CanActivate {
   canActivate(context: ExecutionContext): boolean {
@@ -21,7 +22,10 @@ export class EmailVerifiedGuard implements CanActivate {
       throw new UnauthorizedException('Not authenticated');
     }
     if (!request.user.emailVerifiedAt) {
-      throw new ForbiddenException('Please verify your email address to continue');
+      throw new ForbiddenException({
+        code: BOOKING_ERROR_CODES.EMAIL_NOT_VERIFIED,
+        message: 'Please verify your email address to continue',
+      });
     }
     return true;
   }

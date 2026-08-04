@@ -6,6 +6,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import {
+  BOOKING_ERROR_CODES,
   getOfficeWeekBoundaries,
   intervalsOverlap,
   isAlignedToSlot,
@@ -59,18 +60,16 @@ export class BookingService {
     const endAt = new Date(dto.endAt);
 
     if (!isAlignedToSlot(startAt, OFFICE_TIMEZONE) || !isAlignedToSlot(endAt, OFFICE_TIMEZONE)) {
-      throw new BadRequestException('Start and end times must align to 30-minute slots');
+      throw slotMisalignedError();
     }
     if (!isValidDuration(startAt, endAt)) {
-      throw new BadRequestException('Booking duration must be between 30 minutes and 4 hours');
+      throw durationInvalidError();
     }
     if (startAt.getTime() <= Date.now()) {
-      throw new BadRequestException('Bookings must start in the future');
+      throw pastStartError();
     }
     if (!isWithinOfficeHours(startAt, endAt)) {
-      throw new BadRequestException(
-        'Bookings must fall entirely within office hours (09:00-19:00 Europe/Kyiv)',
-      );
+      throw outsideOfficeHoursError();
     }
 
     // Fast, non-racy pre-check for the overwhelmingly common non-concurrent
@@ -82,7 +81,7 @@ export class BookingService {
       select: { startAt: true, endAt: true },
     });
     if (activeBookings.some((b) => intervalsOverlap(startAt, endAt, b.startAt, b.endAt))) {
-      throw new ConflictException('This time slot is already booked');
+      throw bookingConflictError();
     }
 
     let created: BookingWithAuthor;
@@ -105,7 +104,7 @@ export class BookingService {
       // the same conflict response the pre-check produces, so the client
       // sees one consistent error contract either way.
       if (isOverlapConstraintViolation(error)) {
-        throw new ConflictException('This time slot is already booked');
+        throw bookingConflictError();
       }
       throw error;
     }
@@ -158,7 +157,7 @@ export class BookingService {
       throw new NotFoundException('Booking not found');
     }
     if (booking.userId !== requesterId) {
-      throw new ForbiddenException('You can only cancel your own booking');
+      throw forbiddenCancellationError();
     }
     if (booking.status === BookingStatus.CANCELLED) {
       return;
@@ -182,6 +181,52 @@ export class BookingService {
       seriesId: booking.seriesId,
     };
   }
+}
+
+// Each helper pairs a stable machine-readable `code` (see
+// packages/shared/src/booking.ts) with the human-readable `message` in the
+// same response body, so a client can branch on `code` without parsing
+// prose while the message stays readable on its own.
+function slotMisalignedError(): BadRequestException {
+  return new BadRequestException({
+    code: BOOKING_ERROR_CODES.SLOT_MISALIGNED,
+    message: 'Start and end times must align to 30-minute slots',
+  });
+}
+
+function durationInvalidError(): BadRequestException {
+  return new BadRequestException({
+    code: BOOKING_ERROR_CODES.DURATION_INVALID,
+    message: 'Booking duration must be between 30 minutes and 4 hours',
+  });
+}
+
+function pastStartError(): BadRequestException {
+  return new BadRequestException({
+    code: BOOKING_ERROR_CODES.PAST_START,
+    message: 'Bookings must start in the future',
+  });
+}
+
+function outsideOfficeHoursError(): BadRequestException {
+  return new BadRequestException({
+    code: BOOKING_ERROR_CODES.OUTSIDE_OFFICE_HOURS,
+    message: 'Bookings must fall entirely within office hours (09:00-19:00 Europe/Kyiv)',
+  });
+}
+
+function bookingConflictError(): ConflictException {
+  return new ConflictException({
+    code: BOOKING_ERROR_CODES.BOOKING_CONFLICT,
+    message: 'This time slot is already booked',
+  });
+}
+
+function forbiddenCancellationError(): ForbiddenException {
+  return new ForbiddenException({
+    code: BOOKING_ERROR_CODES.FORBIDDEN_CANCELLATION,
+    message: 'You can only cancel your own booking',
+  });
 }
 
 // Matched by constraint name and message content rather than only Prisma's
