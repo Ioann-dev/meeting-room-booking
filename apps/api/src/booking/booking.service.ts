@@ -15,6 +15,8 @@ import {
   isWithinOfficeHours,
   OFFICE_TIMEZONE,
   parseIsoInstant,
+  RECURRENCE_MAX_OCCURRENCES,
+  RECURRENCE_MIN_OCCURRENCES,
   toZonedParts,
   type BookingSeriesSummary,
   type BookingSummary,
@@ -127,6 +129,24 @@ export class BookingService {
     recurrence: RecurrenceInputDto,
     user: AuthenticatedUser,
   ): Promise<BookingSeriesSummary> {
+    // Defense-in-depth: the DTO's @IsInt/@Min/@Max already enforce this
+    // over HTTP, but createSeries is a public service method with its own
+    // contract -- it must not trust the caller unconditionally. Guards
+    // against malformed input reaching generateWeeklyOccurrences (which,
+    // given a non-finite or out-of-range count, would silently produce the
+    // wrong number of occurrences or an empty array, the latter crashing
+    // on `occurrences[0]` a few lines below with an unhandled TypeError
+    // rather than a clean rejection).
+    if (
+      !Number.isInteger(recurrence.occurrenceCount) ||
+      recurrence.occurrenceCount < RECURRENCE_MIN_OCCURRENCES ||
+      recurrence.occurrenceCount > RECURRENCE_MAX_OCCURRENCES
+    ) {
+      throw new BadRequestException(
+        `occurrenceCount must be an integer between ${RECURRENCE_MIN_OCCURRENCES} and ${RECURRENCE_MAX_OCCURRENCES}`,
+      );
+    }
+
     await this.requireRoom(dto.roomId);
 
     const firstStart = parseIsoInstant(dto.startAt);

@@ -1,7 +1,8 @@
 import { Transform, Type } from 'class-transformer';
 import {
-  IsISO8601,
   IsInt,
+  IsISO8601,
+  IsObject,
   IsOptional,
   IsString,
   IsUUID,
@@ -64,7 +65,19 @@ export class CreateBookingDto {
 
   // Absent: a single booking (Phase 05 behavior, unchanged). Present: a
   // weekly recurring series anchored at startAt/endAt (Phase 06).
+  //
+  // @IsObject() matters beyond a friendlier error: class-validator's
+  // @ValidateNested() treats an array as a collection and validates each
+  // element, so `recurrence: []` and `recurrence: [{ occurrenceCount: 3 }]`
+  // both passed validation with zero errors before this was added --
+  // `dto.recurrence` ended up as a truthy array, the controller routed to
+  // createSeries(), and `recurrence.occurrenceCount` (undefined on an
+  // array) reached generateWeeklyOccurrences() as `undefined`, producing
+  // zero occurrences and an unhandled 500 on `occurrences[0]`. @IsObject()
+  // explicitly excludes arrays (and null), so both shapes are now a clean
+  // 400 at the DTO boundary instead of reaching the service at all.
   @IsOptional()
+  @IsObject({ message: 'recurrence must be an object, not an array or primitive' })
   @ValidateNested()
   @Type(() => RecurrenceInputDto)
   recurrence?: RecurrenceInputDto;
