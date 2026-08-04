@@ -14,14 +14,15 @@ this is the cross-phase tracking view.
 - [x] **03 — Authentication**: registration with email canonicalization and validation;
       Argon2id hashing; opaque DB session issuance/guard; logout/revocation; dev email
       verification tokens; login/register screens; session restore on reload; auth tests.
-- [ ] **04 — Rooms and time**: room list/detail + capacity filter endpoints; centralized
+- [x] **04 — Rooms and time**: room list/detail + capacity filter endpoints; centralized
       office-zone/hours/slot constants in `packages/shared`; DST-safe conversion helpers;
       browser-timezone detection and office-zone badge; DST/cross-timezone tests.
-- [ ] **05 — Booking core**: booking DTOs/domain service; title/alignment/duration
+- [x] **05 — Booking core**: booking DTOs/domain service; title/alignment/duration
       validation; future + office-hours validation; verified-user + room-existence checks;
       create with DB conflict mapping; active-week schedule query; owner-only cancellation;
       standardized error codes; overlap unit tests; create/cancel integration tests;
-      concurrency race test.
+      concurrency race test. Post-implementation audit fixes: host-timezone-independent
+      instant parsing, real Prisma/Postgres conflict-error matching, bounded overlap query.
 - [ ] **06 — Recurrence**: weekly recurrence contract; DST-safe occurrence generation;
       transactional series creation with conflict rollback; single-occurrence and
       whole-series cancellation; recurrence metadata on schedule responses; recurrence
