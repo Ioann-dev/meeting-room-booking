@@ -1,5 +1,5 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
-import type { BookingSummary } from 'shared';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { isAlignedToSlot, isValidDuration, OFFICE_TIMEZONE, type BookingSummary } from 'shared';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateBookingDto } from './dto/create-booking.dto';
 import type { AuthenticatedUser } from '../auth/auth.service';
@@ -39,11 +39,21 @@ export class BookingService {
       throw new NotFoundException('Room not found');
     }
 
+    const startAt = new Date(dto.startAt);
+    const endAt = new Date(dto.endAt);
+
+    if (!isAlignedToSlot(startAt, OFFICE_TIMEZONE) || !isAlignedToSlot(endAt, OFFICE_TIMEZONE)) {
+      throw new BadRequestException('Start and end times must align to 30-minute slots');
+    }
+    if (!isValidDuration(startAt, endAt)) {
+      throw new BadRequestException('Booking duration must be between 30 minutes and 4 hours');
+    }
+
     const created = await this.prisma.booking.create({
       data: {
         title: dto.title,
-        startAt: new Date(dto.startAt),
-        endAt: new Date(dto.endAt),
+        startAt,
+        endAt,
         roomId: dto.roomId,
         userId: user.id,
       },

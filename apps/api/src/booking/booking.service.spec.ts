@@ -1,4 +1,4 @@
-import { NotFoundException } from '@nestjs/common';
+import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { BookingService } from './booking.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateBookingDto } from './dto/create-booking.dto';
@@ -91,6 +91,72 @@ describe('BookingService.create', () => {
       authorName: 'Ivan Test',
       isOwnBooking: true,
       seriesId: null,
+    });
+  });
+
+  describe('slot alignment', () => {
+    it('rejects a start time off the 30-minute grid', async () => {
+      const service = buildService({});
+
+      await expect(
+        service.create(
+          buildDto({ startAt: '2026-06-01T06:15:00.000Z', endAt: '2026-06-01T06:45:00.000Z' }),
+          REQUESTER,
+        ),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('rejects an end time off the 30-minute grid', async () => {
+      const service = buildService({});
+
+      await expect(
+        service.create(
+          buildDto({ startAt: '2026-06-01T06:00:00.000Z', endAt: '2026-06-01T06:40:00.000Z' }),
+          REQUESTER,
+        ),
+      ).rejects.toThrow(BadRequestException);
+    });
+  });
+
+  describe('duration bounds', () => {
+    it('accepts the minimum (30 min) and maximum (4h) durations', async () => {
+      const service = buildService({});
+
+      await expect(
+        service.create(
+          buildDto({ startAt: '2026-06-01T06:00:00.000Z', endAt: '2026-06-01T06:30:00.000Z' }),
+          REQUESTER,
+        ),
+      ).resolves.toBeDefined();
+
+      await expect(
+        service.create(
+          buildDto({ startAt: '2026-06-01T06:00:00.000Z', endAt: '2026-06-01T10:00:00.000Z' }),
+          REQUESTER,
+        ),
+      ).resolves.toBeDefined();
+    });
+
+    it('rejects a duration below 30 minutes', async () => {
+      const service = buildService({});
+
+      await expect(
+        service.create(
+          buildDto({ startAt: '2026-06-01T06:00:00.000Z', endAt: '2026-06-01T06:15:00.000Z' }),
+          REQUESTER,
+        ),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('rejects a duration above 4 hours', async () => {
+      const service = buildService({});
+
+      await expect(
+        service.create(
+          buildDto({ startAt: '2026-06-01T06:00:00.000Z', endAt: '2026-06-01T10:01:00.000Z' }),
+          REQUESTER,
+        ),
+      ).rejects.toThrow(BadRequestException);
     });
   });
 });
