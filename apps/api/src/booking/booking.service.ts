@@ -237,28 +237,38 @@ function forbiddenCancellationError(): ForbiddenException {
   });
 }
 
-// Matched by constraint name and message content rather than only Prisma's
-// `.code`, since a generic Postgres constraint violation (not a
-// Prisma-native unique/foreign-key case) doesn't map to one fixed, stable
-// Prisma error code across versions -- the constraint name embedded in the
-// underlying Postgres error is the one thing guaranteed not to change.
-//
-// A GiST exclusion constraint's overlap check under genuinely concurrent
-// inserts for the same range can also surface as a Postgres deadlock
-// (SQLSTATE 40P01, "deadlock detected") rather than a clean exclusion
-// violation (23P01) -- confirmed empirically by the concurrency test, which
-// reproduces it reliably. Either outcome means the same thing from the
-// caller's perspective: another request is contending for this exact
-// room/slot, so both map to the same conflict response.
-function isOverlapConstraintViolation(error: unknown): boolean {
-  if (error instanceof Prisma.PrismaClientKnownRequestError) {
-    const constraint = error.meta?.constraint;
-    return (
-      (typeof constraint === 'string' && constraint.includes('Booking_no_overlap')) ||
-      error.message.includes('Booking_no_overlap') ||
-      error.message.includes('40P01') ||
-      error.message.toLowerCase().includes('deadlock')
-    );
+// Postgres SQLSTATEs that mean "another request is contending for this
+// exact room/slot": 23P01 is the exclusion constraint's own violation
+// code; 40P01 is a deadlock, which a GiST exclusion constraint's overlap
+// check can also surface under genuinely concurrent inserts for
+// overlapping ranges instead of a clean 23P01 (confirmed empirically by
+// the concurrency test, which reproduces it reliably). Both mean the same
+// thing from the caller's perspective, so both map to the same 409.
+const OVERLAP_SQLSTATES = new Set(['23P01', '40P01']);
+
+// With @prisma/adapter-pg (Prisma 7.9.1, confirmed by directly triggering
+// this exact constraint against Postgres), a caught overlap/deadlock
+// error is a PrismaClientKnownRequestError whose top-level `.code` is a
+// generic wrapper (e.g. "P2039", "database error") and whose
+// `.meta.constraint` is **not populated** -- this driver never emits it,
+// so matching on it would silently never fire. The real Postgres SQLSTATE
+// lives at `.meta.driverAdapterError.cause.code`. That structured field is
+// checked first; the message-substring checks below only exist as a
+// fallback for a Prisma version/driver that doesn't populate it.
+export function isOverlapConstraintViolation(error: unknown): boolean {
+  if (!(error instanceof Prisma.PrismaClientKnownRequestError)) {
+    return false;
   }
-  return false;
+
+  const meta = error.meta as { driverAdapterError?: { cause?: { code?: unknown } } } | undefined;
+  const sqlState = meta?.driverAdapterError?.cause?.code;
+  if (typeof sqlState === 'string' && OVERLAP_SQLSTATES.has(sqlState)) {
+    return true;
+  }
+
+  return (
+    error.message.includes('Booking_no_overlap') ||
+    error.message.includes('23P01') ||
+    error.message.includes('40P01')
+  );
 }
