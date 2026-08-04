@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useCurrentUser } from '@/hooks/use-current-user';
 import { ErrorState } from '@/components/ui/error-state';
 import { Spinner } from '@/components/ui/spinner';
+import { OfficeZoneNotice } from '@/components/office-zone-notice';
 import { AppHeader } from './app-header';
 
 type HealthState = 'checking' | 'ok' | 'error';
@@ -79,7 +80,8 @@ export function AppShell({ children }: { children: ReactNode }) {
       </a>
       <AppHeader user={user} onLoggedOut={clearUser} />
       <main id="main-content" className="mx-auto w-full max-w-6xl flex-1 px-4 py-8 sm:px-6 lg:px-8">
-        {children}
+        <OfficeZoneNotice />
+        <div className="mt-6 first:mt-0">{children}</div>
       </main>
     </div>
   );
