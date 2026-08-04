@@ -2,6 +2,7 @@ import { OFFICE_TIMEZONE } from './office';
 import {
   getDurationMinutes,
   getOfficeWeekBoundaries,
+  intervalsOverlap,
   isAlignedToSlot,
   isValidDuration,
   isWithinOfficeHours,
@@ -210,5 +211,90 @@ describe('isWithinOfficeHours', () => {
     expect(
       isWithinOfficeHours('2026-03-29T06:00:00.000Z', '2026-03-29T07:00:00.000Z', OFFICE_TIMEZONE),
     ).toBe(true);
+  });
+});
+
+describe('intervalsOverlap', () => {
+  it('returns false for adjacent intervals (one ends exactly when the other starts)', () => {
+    // [10:00, 11:00) and [11:00, 12:00) -- half-open semantics mean these
+    // never conflict; adjacency is a property of the definition, not a
+    // special case bolted onto it (see docs/decisions/0001-booking-overlap.md).
+    expect(
+      intervalsOverlap(
+        '2026-06-01T10:00:00.000Z',
+        '2026-06-01T11:00:00.000Z',
+        '2026-06-01T11:00:00.000Z',
+        '2026-06-01T12:00:00.000Z',
+      ),
+    ).toBe(false);
+
+    // Symmetric: the second interval starting before the first also holds.
+    expect(
+      intervalsOverlap(
+        '2026-06-01T11:00:00.000Z',
+        '2026-06-01T12:00:00.000Z',
+        '2026-06-01T10:00:00.000Z',
+        '2026-06-01T11:00:00.000Z',
+      ),
+    ).toBe(false);
+  });
+
+  it('returns true for a partial overlap', () => {
+    // [10:00, 11:00) and [10:30, 11:30) share [10:30, 11:00).
+    expect(
+      intervalsOverlap(
+        '2026-06-01T10:00:00.000Z',
+        '2026-06-01T11:00:00.000Z',
+        '2026-06-01T10:30:00.000Z',
+        '2026-06-01T11:30:00.000Z',
+      ),
+    ).toBe(true);
+  });
+
+  it('returns true for a full overlap (identical intervals)', () => {
+    expect(
+      intervalsOverlap(
+        '2026-06-01T10:00:00.000Z',
+        '2026-06-01T11:00:00.000Z',
+        '2026-06-01T10:00:00.000Z',
+        '2026-06-01T11:00:00.000Z',
+      ),
+    ).toBe(true);
+  });
+
+  it('returns true when one interval is fully contained within the other', () => {
+    // [10:00, 12:00) contains [10:30, 11:00).
+    expect(
+      intervalsOverlap(
+        '2026-06-01T10:00:00.000Z',
+        '2026-06-01T12:00:00.000Z',
+        '2026-06-01T10:30:00.000Z',
+        '2026-06-01T11:00:00.000Z',
+      ),
+    ).toBe(true);
+
+    // Same pair, arguments reversed -- the predicate is symmetric.
+    expect(
+      intervalsOverlap(
+        '2026-06-01T10:30:00.000Z',
+        '2026-06-01T11:00:00.000Z',
+        '2026-06-01T10:00:00.000Z',
+        '2026-06-01T12:00:00.000Z',
+      ),
+    ).toBe(true);
+  });
+
+  it('returns false for intervals on neighboring days with no shared instant', () => {
+    // Monday 18:30-19:00 Kyiv and Tuesday 09:00-09:30 Kyiv: same room's
+    // schedule could plausibly hold both; they must never be flagged as
+    // overlapping just because they're close together across a day boundary.
+    expect(
+      intervalsOverlap(
+        '2026-06-01T15:30:00.000Z', // Mon 18:30 Kyiv
+        '2026-06-01T16:00:00.000Z', // Mon 19:00 Kyiv
+        '2026-06-02T06:00:00.000Z', // Tue 09:00 Kyiv
+        '2026-06-02T06:30:00.000Z', // Tue 09:30 Kyiv
+      ),
+    ).toBe(false);
   });
 });
