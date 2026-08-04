@@ -12,16 +12,20 @@ import { ApiError } from '@/lib/api-error';
 import { fetchRooms } from '@/lib/rooms-client';
 
 type LoadState =
-  | { phase: 'loading' }
   | { phase: 'error'; message: string }
   | { phase: 'ready'; rooms: RoomSummary[] };
+
+interface Result {
+  requestKey: string;
+  state: LoadState;
+}
 
 const SKELETON_COUNT = 6;
 
 export default function SchedulePage() {
   const [minCapacityInput, setMinCapacityInput] = useState('');
-  const [state, setState] = useState<LoadState>({ phase: 'loading' });
   const [attempt, setAttempt] = useState(0);
+  const [result, setResult] = useState<Result | null>(null);
 
   const minCapacity = useMemo(() => {
     const trimmed = minCapacityInput.trim();
@@ -32,42 +36,50 @@ export default function SchedulePage() {
     return Number.isInteger(parsed) && parsed >= 1 ? parsed : undefined;
   }, [minCapacityInput]);
 
+  // The request in flight is identified by this key rather than a stored
+  // "loading" flag: `loading` below is then derived from whether the last
+  // completed request matches it, so it can only ever reflect a real
+  // fetch/response transition instead of drifting out of sync with one.
+  const requestKey = `${minCapacity ?? 'all'}:${attempt}`;
+
   useEffect(() => {
     let cancelled = false;
 
     void fetchRooms(minCapacity)
       .then((rooms) => {
         if (!cancelled) {
-          setState({ phase: 'ready', rooms });
+          setResult({ requestKey, state: { phase: 'ready', rooms } });
         }
       })
       .catch((error: unknown) => {
         if (cancelled) {
           return;
         }
-        setState({
-          phase: 'error',
-          message: error instanceof ApiError ? error.messages.join(' ') : 'Could not load rooms.',
+        setResult({
+          requestKey,
+          state: {
+            phase: 'error',
+            message: error instanceof ApiError ? error.messages.join(' ') : 'Could not load rooms.',
+          },
         });
       });
 
     return () => {
       cancelled = true;
     };
-  }, [minCapacity, attempt]);
+  }, [minCapacity, attempt, requestKey]);
+
+  const loading = result === null || result.requestKey !== requestKey;
 
   function handleCapacityChange(value: string) {
-    setState({ phase: 'loading' });
     setMinCapacityInput(value);
   }
 
   function handleRetry() {
-    setState({ phase: 'loading' });
     setAttempt((current) => current + 1);
   }
 
   function handleClearFilter() {
-    setState({ phase: 'loading' });
     setMinCapacityInput('');
   }
 
@@ -82,7 +94,7 @@ export default function SchedulePage() {
 
       <CapacityFilter value={minCapacityInput} onChange={handleCapacityChange} />
 
-      {state.phase === 'loading' && (
+      {loading && (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {Array.from({ length: SKELETON_COUNT }, (_, index) => (
             <Skeleton key={index} className="h-24" />
@@ -90,15 +102,15 @@ export default function SchedulePage() {
         </div>
       )}
 
-      {state.phase === 'error' && (
+      {!loading && result.state.phase === 'error' && (
         <ErrorState
           title="Could not load rooms"
-          description={state.message}
+          description={result.state.message}
           onRetry={handleRetry}
         />
       )}
 
-      {state.phase === 'ready' && state.rooms.length === 0 && (
+      {!loading && result.state.phase === 'ready' && result.state.rooms.length === 0 && (
         <EmptyState
           title="No rooms match this capacity"
           description="Try lowering the minimum capacity."
@@ -110,7 +122,9 @@ export default function SchedulePage() {
         />
       )}
 
-      {state.phase === 'ready' && state.rooms.length > 0 && <RoomList rooms={state.rooms} />}
+      {!loading && result.state.phase === 'ready' && result.state.rooms.length > 0 && (
+        <RoomList rooms={result.state.rooms} />
+      )}
     </div>
   );
 }
