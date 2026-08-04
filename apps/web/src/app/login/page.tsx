@@ -2,11 +2,13 @@
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { FormEvent, useState } from 'react';
+import { FormEvent, useEffect, useState } from 'react';
 import { Alert } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { FormField } from '@/components/ui/form-field';
 import { Input } from '@/components/ui/input';
+import { Spinner } from '@/components/ui/spinner';
+import { useCurrentUser } from '@/hooks/use-current-user';
 import { ApiError } from '@/lib/api-error';
 import { login } from '@/lib/auth-client';
 
@@ -28,11 +30,18 @@ function validate(email: string, password: string): FieldErrors {
 
 export default function LoginPage() {
   const router = useRouter();
+  const { status } = useCurrentUser();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [serverError, setServerError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
+
+  useEffect(() => {
+    if (status === 'authenticated') {
+      router.replace('/schedule');
+    }
+  }, [status, router]);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -54,6 +63,14 @@ export default function LoginPage() {
     } finally {
       setPending(false);
     }
+  }
+
+  if (status === 'authenticated') {
+    return (
+      <main className="flex min-h-screen items-center justify-center">
+        <Spinner className="h-6 w-6 text-ink-faint" />
+      </main>
+    );
   }
 
   return (
