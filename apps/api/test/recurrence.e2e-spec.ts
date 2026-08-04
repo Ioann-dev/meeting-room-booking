@@ -207,6 +207,95 @@ describe('Recurrence (e2e)', () => {
         .expect(400);
     });
 
+    // Regression coverage for a fix: class-validator's @ValidateNested()
+    // treats an array as a collection and validates its elements, so
+    // `recurrence: []`/`recurrence: [{...}]` previously passed validation
+    // with zero errors, reached BookingService.createSeries as a truthy
+    // array whose `.occurrenceCount` is undefined, and crashed with an
+    // unhandled 500 instead of a clean 400.
+    describe('malformed recurrence input', () => {
+      it.each([
+        ['an empty array', []],
+        ['an array containing an otherwise-valid object', [{ occurrenceCount: 4 }]],
+        ['an array containing an empty object', [{}]],
+        ['a string', 'weekly'],
+        ['a number', 4],
+        ['a boolean', true],
+      ])('rejects recurrence as %s with 400, not 500', async (_label, recurrence) => {
+        const { cookie } = await registerVerifiedUser('series-malformed');
+
+        const response = await request(app.getHttpServer())
+          .post('/bookings')
+          .set('Cookie', cookie)
+          .send({
+            title: 'Bad',
+            roomId,
+            startAt: '2099-09-10T06:00:00.000Z',
+            endAt: '2099-09-10T06:30:00.000Z',
+            recurrence,
+          })
+          .expect(400);
+
+        expect((response.body as { statusCode: number }).statusCode).toBe(400);
+      });
+
+      it('rejects a recurrence object with an unknown nested field', async () => {
+        const { cookie } = await registerVerifiedUser('series-unknown-field');
+
+        await request(app.getHttpServer())
+          .post('/bookings')
+          .set('Cookie', cookie)
+          .send({
+            title: 'Bad',
+            roomId,
+            startAt: '2099-09-11T06:00:00.000Z',
+            endAt: '2099-09-11T06:30:00.000Z',
+            recurrence: { occurrenceCount: 4, evil: true },
+          })
+          .expect(400);
+      });
+
+      it('treats a null recurrence the same as an absent one (creates a single booking)', async () => {
+        const { cookie } = await registerVerifiedUser('series-null');
+
+        const response = await request(app.getHttpServer())
+          .post('/bookings')
+          .set('Cookie', cookie)
+          .send({
+            title: 'Not Recurring',
+            roomId,
+            startAt: '2099-09-12T06:00:00.000Z',
+            endAt: '2099-09-12T06:30:00.000Z',
+            recurrence: null,
+          })
+          .expect(201);
+
+        const body = response.body as BookingSummary;
+        expect(body.id).toBeDefined();
+        expect(body).not.toHaveProperty('bookings');
+      });
+
+      it('still creates a valid series when recurrence is a well-formed object', async () => {
+        const { cookie } = await registerVerifiedUser('series-valid-recur');
+
+        const response = await request(app.getHttpServer())
+          .post('/bookings')
+          .set('Cookie', cookie)
+          .send({
+            title: 'Valid Series',
+            roomId,
+            startAt: '2099-09-13T06:00:00.000Z',
+            endAt: '2099-09-13T06:30:00.000Z',
+            recurrence: { occurrenceCount: 3 },
+          })
+          .expect(201);
+
+        const body = response.body as BookingSeriesSummary;
+        expect(body.occurrenceCount).toBe(3);
+        expect(body.bookings).toHaveLength(3);
+      });
+    });
+
     it('rejects an unverified user with 403', async () => {
       const email = uniqueEmail('series-unverified');
       const registerResponse = await request(app.getHttpServer())

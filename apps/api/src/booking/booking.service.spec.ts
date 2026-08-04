@@ -6,7 +6,7 @@ import {
 } from '@nestjs/common';
 import { BookingService, isOverlapConstraintViolation } from './booking.service';
 import { PrismaService } from '../prisma/prisma.service';
-import { CreateBookingDto } from './dto/create-booking.dto';
+import { CreateBookingDto, RecurrenceInputDto } from './dto/create-booking.dto';
 import type { AuthenticatedUser } from '../auth/auth.service';
 import { Prisma } from '../../generated/prisma/client';
 
@@ -608,6 +608,48 @@ describe('standardized error codes', () => {
 });
 
 describe('BookingService.createSeries', () => {
+  // Regression coverage for a fix: createSeries is a public service method
+  // whose own contract must not trust the caller unconditionally, even
+  // though the DTO's @IsInt/@Min/@Max already enforce this over HTTP. Before
+  // this guard, an out-of-range/non-integer occurrenceCount reached
+  // generateWeeklyOccurrences() and either produced the wrong occurrence
+  // count silently or (for `undefined`, e.g. from an array-shaped
+  // `recurrence` slipping past validation) an empty array that crashed on
+  // `occurrences[0]` with an unhandled TypeError instead of a clean 400.
+  describe('occurrenceCount defense-in-depth', () => {
+    it.each([
+      ['undefined', undefined],
+      ['NaN', NaN],
+      ['zero', 0],
+      ['below the minimum', 1],
+      ['above the maximum', 53],
+      ['a non-integer', 1.5],
+      ['negative', -5],
+    ])('rejects %s without ever querying the room or database', async (_label, occurrenceCount) => {
+      const findUniqueRoom = jest.fn();
+      const service = buildService({ findUniqueRoom });
+      const dto = buildSeriesDto();
+
+      await expect(
+        service.createSeries(dto, { occurrenceCount } as RecurrenceInputDto, REQUESTER),
+      ).rejects.toThrow(BadRequestException);
+      expect(findUniqueRoom).not.toHaveBeenCalled();
+    });
+
+    it('accepts the boundary values 2 and 52', async () => {
+      const service = buildService({});
+      const dtoMin = buildSeriesDto({ recurrence: { occurrenceCount: 2 } });
+      const dtoMax = buildSeriesDto({ recurrence: { occurrenceCount: 52 } });
+
+      await expect(
+        service.createSeries(dtoMin, dtoMin.recurrence!, REQUESTER),
+      ).resolves.toBeDefined();
+      await expect(
+        service.createSeries(dtoMax, dtoMax.recurrence!, REQUESTER),
+      ).resolves.toBeDefined();
+    });
+  });
+
   it('throws NotFoundException when the room does not exist', async () => {
     const service = buildService({ findUniqueRoom: jest.fn().mockResolvedValue(null) });
 
