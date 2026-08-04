@@ -286,3 +286,62 @@ describe('BookingService.create', () => {
     });
   });
 });
+
+describe('BookingService.getRoomSchedule', () => {
+  it('throws NotFoundException when the room does not exist', async () => {
+    const service = buildService({ findUniqueRoom: jest.fn().mockResolvedValue(null) });
+
+    await expect(service.getRoomSchedule('missing-room', undefined, 'user-1')).rejects.toThrow(
+      NotFoundException,
+    );
+  });
+
+  it('returns the office week boundaries and maps ownership per booking', async () => {
+    const findManyBooking = jest.fn().mockResolvedValue([
+      {
+        id: 'booking-own',
+        roomId: 'room-1',
+        title: 'My Sync',
+        startAt: new Date('2026-06-01T06:00:00.000Z'),
+        endAt: new Date('2026-06-01T06:30:00.000Z'),
+        seriesId: null,
+        userId: 'user-1',
+        user: { name: 'Ivan Test' },
+      },
+      {
+        id: 'booking-other',
+        roomId: 'room-1',
+        title: 'Their Sync',
+        startAt: new Date('2026-06-02T06:00:00.000Z'),
+        endAt: new Date('2026-06-02T06:30:00.000Z'),
+        seriesId: null,
+        userId: 'user-2',
+        user: { name: 'Other User' },
+      },
+    ]);
+    const service = buildService({ findManyBooking });
+
+    const result = await service.getRoomSchedule('room-1', '2026-06-01T10:00:00.000Z', 'user-1');
+
+    expect(result.roomId).toBe('room-1');
+    expect(result.weekStartUtc).toBe('2026-05-31T21:00:00.000Z'); // Monday 00:00 Kyiv (EEST)
+    expect(result.weekEndUtc).toBe('2026-06-07T21:00:00.000Z');
+    expect(result.bookings.map((b) => [b.id, b.isOwnBooking])).toEqual([
+      ['booking-own', true],
+      ['booking-other', false],
+    ]);
+  });
+
+  it('queries only active bookings for the room within the resolved week', async () => {
+    const findManyBooking = jest.fn().mockResolvedValue([]);
+    const service = buildService({ findManyBooking });
+
+    await service.getRoomSchedule('room-1', '2026-06-01T10:00:00.000Z', 'user-1');
+
+    const [callArgs] = findManyBooking.mock.calls[0] as [
+      { where: { roomId: string; status: string } },
+    ];
+    expect(callArgs.where.roomId).toBe('room-1');
+    expect(callArgs.where.status).toBe('ACTIVE');
+  });
+});

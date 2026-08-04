@@ -5,12 +5,14 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import {
+  getOfficeWeekBoundaries,
   intervalsOverlap,
   isAlignedToSlot,
   isValidDuration,
   isWithinOfficeHours,
   OFFICE_TIMEZONE,
   type BookingSummary,
+  type RoomScheduleResponse,
 } from 'shared';
 import { BookingStatus, Prisma } from '../../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
@@ -108,6 +110,37 @@ export class BookingService {
     }
 
     return this.toSummary(created, user.id);
+  }
+
+  async getRoomSchedule(
+    roomId: string,
+    referenceDate: string | undefined,
+    requesterId: string,
+  ): Promise<RoomScheduleResponse> {
+    const room = await this.prisma.room.findUnique({ where: { id: roomId }, select: { id: true } });
+    if (!room) {
+      throw new NotFoundException('Room not found');
+    }
+
+    const { startUtc, endUtc } = getOfficeWeekBoundaries(referenceDate ?? new Date().toISOString());
+
+    const bookings = await this.prisma.booking.findMany({
+      where: {
+        roomId,
+        status: BookingStatus.ACTIVE,
+        startAt: { lt: new Date(endUtc) },
+        endAt: { gt: new Date(startUtc) },
+      },
+      orderBy: { startAt: 'asc' },
+      select: BOOKING_WITH_AUTHOR_SELECT,
+    });
+
+    return {
+      roomId,
+      weekStartUtc: startUtc,
+      weekEndUtc: endUtc,
+      bookings: bookings.map((booking) => this.toSummary(booking, requesterId)),
+    };
   }
 
   private toSummary(booking: BookingWithAuthor, requesterId: string): BookingSummary {
