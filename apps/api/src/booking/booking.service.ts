@@ -145,9 +145,48 @@ export class BookingService {
       this.validateOccurrenceTiming(occurrence.startAt, occurrence.endAt);
     }
 
+    // Fast, non-racy pre-check across the whole series window (same shared
+    // predicate and same query-bounding approach as create()'s single-slot
+    // pre-check): finds the first occurrence that collides with an
+    // existing active booking before opening a transaction at all, so the
+    // overwhelmingly common non-concurrent case gets a fast, specific
+    // "occurrence N conflicts" response instead of paying for a
+    // transaction that's going to roll back anyway.
+    const seriesWindowStart = occurrences[0]!.startAt;
+    const seriesWindowEnd = occurrences[occurrences.length - 1]!.endAt;
+    const candidateBookings = await this.prisma.booking.findMany({
+      where: {
+        roomId: dto.roomId,
+        status: BookingStatus.ACTIVE,
+        startAt: { lt: seriesWindowEnd },
+        endAt: { gt: seriesWindowStart },
+      },
+      select: { startAt: true, endAt: true },
+    });
+    const preCheckConflictIndex = occurrences.findIndex((occurrence) =>
+      candidateBookings.some((b) =>
+        intervalsOverlap(occurrence.startAt, occurrence.endAt, b.startAt, b.endAt),
+      ),
+    );
+    if (preCheckConflictIndex !== -1) {
+      throw seriesConflictError(
+        occurrences[preCheckConflictIndex]!,
+        preCheckConflictIndex,
+        recurrence.occurrenceCount,
+      );
+    }
+
     const firstStartParts = toZonedParts(firstStart, OFFICE_TIMEZONE);
     const firstEndParts = toZonedParts(firstEnd, OFFICE_TIMEZONE);
 
+    // Tracks which occurrence is being inserted when/if the transaction
+    // fails, so a race that the pre-check above missed (another request
+    // took the slot between the pre-check and this insert) can still be
+    // reported as "occurrence N conflicts" rather than a generic error.
+    // The whole transaction rolls back on any thrown error -- Prisma's
+    // interactive $transaction issues a real ROLLBACK, so no occurrence
+    // before the failing one is left behind either.
+    let currentIndex = 0;
     let seriesId: string;
     let created: BookingWithAuthor[];
     try {
@@ -164,7 +203,9 @@ export class BookingService {
         });
 
         const rows: BookingWithAuthor[] = [];
-        for (const occurrence of occurrences) {
+        for (let i = 0; i < occurrences.length; i++) {
+          currentIndex = i;
+          const occurrence = occurrences[i]!;
           const booking = await tx.booking.create({
             data: {
               title: dto.title,
@@ -184,7 +225,11 @@ export class BookingService {
       created = result.rows;
     } catch (error) {
       if (isOverlapConstraintViolation(error)) {
-        throw bookingConflictError();
+        throw seriesConflictError(
+          occurrences[currentIndex]!,
+          currentIndex,
+          recurrence.occurrenceCount,
+        );
       }
       throw error;
     }
@@ -326,6 +371,32 @@ function bookingConflictError(): ConflictException {
   return new ConflictException({
     code: BOOKING_ERROR_CODES.BOOKING_CONFLICT,
     message: 'This time slot is already booked',
+  });
+}
+
+function formatOccurrenceLabel(startAt: Date): string {
+  const parts = toZonedParts(startAt, OFFICE_TIMEZONE);
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${parts.year}-${pad(parts.month)}-${pad(parts.day)} ${pad(parts.hour)}:${pad(parts.minute)} ${OFFICE_TIMEZONE}`;
+}
+
+// Distinct from bookingConflictError so a series-creation rejection names
+// which occurrence of the recurring pattern collided -- "occurrence 3 of
+// 8, on 2026-11-03 09:00 Europe/Kyiv" is a materially more useful message
+// than a generic "this slot is booked" for a request that was never about
+// one slot.
+function seriesConflictError(
+  occurrence: { startAt: Date },
+  index: number,
+  occurrenceCount: number,
+): ConflictException {
+  return new ConflictException({
+    code: BOOKING_ERROR_CODES.SERIES_CONFLICT,
+    message: `This recurring booking conflicts with an existing booking on ${formatOccurrenceLabel(
+      occurrence.startAt,
+    )} (occurrence ${index + 1} of ${occurrenceCount})`,
+    conflictingOccurrenceIndex: index,
+    conflictingOccurrenceStartAt: occurrence.startAt.toISOString(),
   });
 }
 
