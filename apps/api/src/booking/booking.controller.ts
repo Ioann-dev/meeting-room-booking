@@ -1,4 +1,14 @@
-import { Body, Controller, Get, HttpCode, Post, Query, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  HttpCode,
+  Param,
+  ParseUUIDPipe,
+  Post,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
 import type { BookingSummary, RoomScheduleResponse } from 'shared';
 import { BookingService } from './booking.service';
 import { CreateBookingDto } from './dto/create-booking.dto';
@@ -29,5 +39,14 @@ export class BookingController {
     @CurrentUser() user: AuthenticatedUser,
   ): Promise<RoomScheduleResponse> {
     return this.bookingService.getRoomSchedule(query.roomId, query.referenceDate, user.id);
+  }
+
+  @Post(':id/cancel')
+  @HttpCode(204)
+  cancel(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: AuthenticatedUser,
+  ): Promise<void> {
+    return this.bookingService.cancel(id, user.id);
   }
 }

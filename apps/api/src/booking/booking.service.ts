@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -141,6 +142,32 @@ export class BookingService {
       weekEndUtc: endUtc,
       bookings: bookings.map((booking) => this.toSummary(booking, requesterId)),
     };
+  }
+
+  // Idempotent by design: cancelling an already-cancelled booking you own
+  // succeeds silently rather than erroring, so a retried or double-tapped
+  // cancel request never surfaces a spurious failure. Ownership is checked
+  // before that idempotent short-circuit, so a non-owner never learns
+  // whether a booking was already cancelled.
+  async cancel(bookingId: string, requesterId: string): Promise<void> {
+    const booking = await this.prisma.booking.findUnique({
+      where: { id: bookingId },
+      select: { id: true, userId: true, status: true },
+    });
+    if (!booking) {
+      throw new NotFoundException('Booking not found');
+    }
+    if (booking.userId !== requesterId) {
+      throw new ForbiddenException('You can only cancel your own booking');
+    }
+    if (booking.status === BookingStatus.CANCELLED) {
+      return;
+    }
+
+    await this.prisma.booking.update({
+      where: { id: bookingId },
+      data: { status: BookingStatus.CANCELLED, cancelledAt: new Date() },
+    });
   }
 
   private toSummary(booking: BookingWithAuthor, requesterId: string): BookingSummary {

@@ -1,4 +1,9 @@
-import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  ForbiddenException,
+  NotFoundException,
+} from '@nestjs/common';
 import { BookingService } from './booking.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateBookingDto } from './dto/create-booking.dto';
@@ -343,5 +348,52 @@ describe('BookingService.getRoomSchedule', () => {
     ];
     expect(callArgs.where.roomId).toBe('room-1');
     expect(callArgs.where.status).toBe('ACTIVE');
+  });
+});
+
+describe('BookingService.cancel', () => {
+  it('throws NotFoundException when the booking does not exist', async () => {
+    const service = buildService({ findUniqueBooking: jest.fn().mockResolvedValue(null) });
+
+    await expect(service.cancel('missing-booking', 'user-1')).rejects.toThrow(NotFoundException);
+  });
+
+  it('throws ForbiddenException when the requester does not own the booking', async () => {
+    const findUniqueBooking = jest
+      .fn()
+      .mockResolvedValue({ id: 'booking-1', userId: 'owner-1', status: 'ACTIVE' });
+    const update = jest.fn();
+    const service = buildService({ findUniqueBooking, update });
+
+    await expect(service.cancel('booking-1', 'someone-else')).rejects.toThrow(ForbiddenException);
+    expect(update).not.toHaveBeenCalled();
+  });
+
+  it('cancels an active booking owned by the requester', async () => {
+    const findUniqueBooking = jest
+      .fn()
+      .mockResolvedValue({ id: 'booking-1', userId: 'user-1', status: 'ACTIVE' });
+    const update = jest.fn().mockResolvedValue({});
+    const service = buildService({ findUniqueBooking, update });
+
+    await service.cancel('booking-1', 'user-1');
+
+    const [callArgs] = update.mock.calls[0] as [
+      { where: { id: string }; data: { status: string; cancelledAt: Date } },
+    ];
+    expect(callArgs.where).toEqual({ id: 'booking-1' });
+    expect(callArgs.data.status).toBe('CANCELLED');
+    expect(callArgs.data.cancelledAt).toBeInstanceOf(Date);
+  });
+
+  it('is idempotent for a booking already cancelled by its owner', async () => {
+    const findUniqueBooking = jest
+      .fn()
+      .mockResolvedValue({ id: 'booking-1', userId: 'user-1', status: 'CANCELLED' });
+    const update = jest.fn();
+    const service = buildService({ findUniqueBooking, update });
+
+    await expect(service.cancel('booking-1', 'user-1')).resolves.toBeUndefined();
+    expect(update).not.toHaveBeenCalled();
   });
 });
