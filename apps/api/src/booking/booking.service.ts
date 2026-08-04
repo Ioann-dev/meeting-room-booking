@@ -20,7 +20,7 @@ import {
   type BookingSummary,
   type RoomScheduleResponse,
 } from 'shared';
-import { BookingStatus, Prisma } from '../../generated/prisma/client';
+import { BookingSeriesStatus, BookingStatus, Prisma } from '../../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateBookingDto, RecurrenceInputDto } from './dto/create-booking.dto';
 import type { AuthenticatedUser } from '../auth/auth.service';
@@ -296,6 +296,45 @@ export class BookingService {
     });
   }
 
+  // Cancelling one occurrence needs no dedicated series logic at all: an
+  // occurrence is just a Booking row with a seriesId set, so the plain
+  // cancel() above already handles it correctly (ownership check against
+  // that row's own userId, same idempotent-re-cancel behavior). This
+  // method is specifically for "cancel every still-active occurrence of
+  // the series" -- the same ownership-before-idempotency ordering as
+  // cancel(), so a non-owner never learns whether the series was already
+  // cancelled, extended to the series as a whole.
+  async cancelSeries(seriesId: string, requesterId: string): Promise<void> {
+    const series = await this.prisma.bookingSeries.findUnique({
+      where: { id: seriesId },
+      select: { id: true, ownerId: true, status: true },
+    });
+    if (!series) {
+      throw new NotFoundException('Booking series not found');
+    }
+    if (series.ownerId !== requesterId) {
+      throw forbiddenSeriesCancellationError();
+    }
+    if (series.status === BookingSeriesStatus.CANCELLED) {
+      return;
+    }
+
+    // Both updates in one transaction: an interrupted cancellation
+    // (process crash between the two statements) must never leave the
+    // series marked ACTIVE while its occurrences are CANCELLED, or vice
+    // versa -- either both happen or neither does.
+    await this.prisma.$transaction([
+      this.prisma.booking.updateMany({
+        where: { seriesId, status: BookingStatus.ACTIVE },
+        data: { status: BookingStatus.CANCELLED, cancelledAt: new Date() },
+      }),
+      this.prisma.bookingSeries.update({
+        where: { id: seriesId },
+        data: { status: BookingSeriesStatus.CANCELLED },
+      }),
+    ]);
+  }
+
   private async requireRoom(roomId: string): Promise<void> {
     const room = await this.prisma.room.findUnique({ where: { id: roomId }, select: { id: true } });
     if (!room) {
@@ -404,6 +443,16 @@ function forbiddenCancellationError(): ForbiddenException {
   return new ForbiddenException({
     code: BOOKING_ERROR_CODES.FORBIDDEN_CANCELLATION,
     message: 'You can only cancel your own booking',
+  });
+}
+
+// Same code as forbiddenCancellationError -- the authorization rule is
+// identical, only the wording differs to say "series" instead of
+// "booking" for a clearer message on this endpoint.
+function forbiddenSeriesCancellationError(): ForbiddenException {
+  return new ForbiddenException({
+    code: BOOKING_ERROR_CODES.FORBIDDEN_CANCELLATION,
+    message: 'You can only cancel your own booking series',
   });
 }
 

@@ -47,6 +47,9 @@ export class BookingController {
     return this.bookingService.getRoomSchedule(query.roomId, query.referenceDate, user.id);
   }
 
+  // Cancels one occurrence -- a series occurrence is just a Booking row
+  // with a seriesId, so this same endpoint already handles both plain
+  // bookings and individual series occurrences with no special-casing.
   @Post(':id/cancel')
   @HttpCode(204)
   cancel(
@@ -54,5 +57,17 @@ export class BookingController {
     @CurrentUser() user: AuthenticatedUser,
   ): Promise<void> {
     return this.bookingService.cancel(id, user.id);
+  }
+
+  // Cancels every still-active occurrence of a series. A distinct route
+  // (not `:id/cancel` reused with a query flag) since a series id and a
+  // booking id are different resources with different ownership checks.
+  @Post('series/:seriesId/cancel')
+  @HttpCode(204)
+  cancelSeries(
+    @Param('seriesId', ParseUUIDPipe) seriesId: string,
+    @CurrentUser() user: AuthenticatedUser,
+  ): Promise<void> {
+    return this.bookingService.cancelSeries(seriesId, user.id);
   }
 }
