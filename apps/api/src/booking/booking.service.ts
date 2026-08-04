@@ -1,11 +1,18 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import {
+  BadRequestException,
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
+import {
+  intervalsOverlap,
   isAlignedToSlot,
   isValidDuration,
   isWithinOfficeHours,
   OFFICE_TIMEZONE,
   type BookingSummary,
 } from 'shared';
+import { BookingStatus, Prisma } from '../../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateBookingDto } from './dto/create-booking.dto';
 import type { AuthenticatedUser } from '../auth/auth.service';
@@ -63,16 +70,42 @@ export class BookingService {
       );
     }
 
-    const created = await this.prisma.booking.create({
-      data: {
-        title: dto.title,
-        startAt,
-        endAt,
-        roomId: dto.roomId,
-        userId: user.id,
-      },
-      select: BOOKING_WITH_AUTHOR_SELECT,
+    // Fast, non-racy pre-check for the overwhelmingly common non-concurrent
+    // case: reuse the same shared overlap predicate the interval unit tests
+    // cover, applied over this room's current active bookings, so the rule
+    // can never drift from the one the exclusion constraint below encodes.
+    const activeBookings = await this.prisma.booking.findMany({
+      where: { roomId: dto.roomId, status: BookingStatus.ACTIVE },
+      select: { startAt: true, endAt: true },
     });
+    if (activeBookings.some((b) => intervalsOverlap(startAt, endAt, b.startAt, b.endAt))) {
+      throw new ConflictException('This time slot is already booked');
+    }
+
+    let created: BookingWithAuthor;
+    try {
+      created = await this.prisma.booking.create({
+        data: {
+          title: dto.title,
+          startAt,
+          endAt,
+          roomId: dto.roomId,
+          userId: user.id,
+        },
+        select: BOOKING_WITH_AUTHOR_SELECT,
+      });
+    } catch (error) {
+      // The pre-check above has a race window between two concurrent
+      // requests; the database's EXCLUDE constraint (see
+      // docs/decisions/0001-booking-overlap.md) is the actual overlap
+      // authority and is what makes this catch reachable at all. Map it to
+      // the same conflict response the pre-check produces, so the client
+      // sees one consistent error contract either way.
+      if (isOverlapConstraintViolation(error)) {
+        throw new ConflictException('This time slot is already booked');
+      }
+      throw error;
+    }
 
     return this.toSummary(created, user.id);
   }
@@ -89,4 +122,20 @@ export class BookingService {
       seriesId: booking.seriesId,
     };
   }
+}
+
+// Matched by constraint name and message content rather than only Prisma's
+// `.code`, since a generic Postgres constraint violation (not a
+// Prisma-native unique/foreign-key case) doesn't map to one fixed, stable
+// Prisma error code across versions -- the constraint name embedded in the
+// underlying Postgres error is the one thing guaranteed not to change.
+function isOverlapConstraintViolation(error: unknown): boolean {
+  if (error instanceof Prisma.PrismaClientKnownRequestError) {
+    const constraint = error.meta?.constraint;
+    return (
+      (typeof constraint === 'string' && constraint.includes('Booking_no_overlap')) ||
+      error.message.includes('Booking_no_overlap')
+    );
+  }
+  return false;
 }

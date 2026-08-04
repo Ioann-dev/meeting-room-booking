@@ -159,6 +159,27 @@ export function isValidDuration(
 }
 
 /**
+ * True when half-open intervals [aStart, aEnd) and [bStart, bEnd) share
+ * any instant. Two intervals overlap iff `aStart < bEnd && bStart < aEnd`
+ * (see docs/decisions/0001-booking-overlap.md) -- adjacency (one interval
+ * ending exactly when the other starts) falls out of this definition
+ * automatically rather than needing a special-cased exception, since
+ * `11:00 < 11:00` is false.
+ */
+export function intervalsOverlap(
+  aStart: Instant,
+  aEnd: Instant,
+  bStart: Instant,
+  bEnd: Instant,
+): boolean {
+  const a1 = toDateTime(aStart);
+  const a2 = toDateTime(aEnd);
+  const b1 = toDateTime(bStart);
+  const b2 = toDateTime(bEnd);
+  return a1 < b2 && b1 < a2;
+}
+
+/**
  * True when the half-open interval [start, end) falls entirely within
  * [openHour, closeHour) office-local wall-clock time on the day `start`
  * falls on. Re-derives office-local time from the UTC instants on every

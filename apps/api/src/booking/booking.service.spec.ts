@@ -1,8 +1,9 @@
-import { BadRequestException, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
 import { BookingService } from './booking.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateBookingDto } from './dto/create-booking.dto';
 import type { AuthenticatedUser } from '../auth/auth.service';
+import { Prisma } from '../../generated/prisma/client';
 
 const REQUESTER: AuthenticatedUser = {
   id: 'user-1',
@@ -235,6 +236,53 @@ describe('BookingService.create', () => {
           REQUESTER,
         ),
       ).rejects.toThrow(BadRequestException);
+    });
+  });
+
+  describe('overlap conflict', () => {
+    it('rejects when an active booking in the same room overlaps (application pre-check)', async () => {
+      const findManyBooking = jest.fn().mockResolvedValue([
+        {
+          startAt: new Date('2026-06-01T06:15:00.000Z'),
+          endAt: new Date('2026-06-01T07:00:00.000Z'),
+        },
+      ]);
+      const service = buildService({ findManyBooking });
+
+      await expect(service.create(buildDto(), REQUESTER)).rejects.toThrow(ConflictException);
+    });
+
+    it('accepts an adjacent booking that ends exactly when the new one starts', async () => {
+      const findManyBooking = jest.fn().mockResolvedValue([
+        {
+          startAt: new Date('2026-06-01T05:30:00.000Z'),
+          endAt: new Date('2026-06-01T06:00:00.000Z'), // ends exactly at the fixture's startAt
+        },
+      ]);
+      const service = buildService({ findManyBooking });
+
+      await expect(service.create(buildDto(), REQUESTER)).resolves.toBeDefined();
+    });
+
+    it('maps a database exclusion-constraint violation to a conflict response', async () => {
+      const create = jest.fn().mockRejectedValue(
+        new Prisma.PrismaClientKnownRequestError('Unique constraint failed', {
+          code: 'P2004',
+          clientVersion: 'test',
+          meta: { constraint: 'Booking_no_overlap' },
+        }),
+      );
+      const service = buildService({ create });
+
+      await expect(service.create(buildDto(), REQUESTER)).rejects.toThrow(ConflictException);
+    });
+
+    it('rethrows an unrelated database error unchanged', async () => {
+      const unrelated = new Error('connection reset');
+      const create = jest.fn().mockRejectedValue(unrelated);
+      const service = buildService({ create });
+
+      await expect(service.create(buildDto(), REQUESTER)).rejects.toBe(unrelated);
     });
   });
 });
