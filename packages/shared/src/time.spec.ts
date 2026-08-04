@@ -1,5 +1,6 @@
 import { OFFICE_TIMEZONE } from './office';
 import {
+  generateWeeklyOccurrences,
   getDurationMinutes,
   getOfficeWeekBoundaries,
   intervalsOverlap,
@@ -390,5 +391,104 @@ describe('isUnambiguousIsoInstant / ISO_INSTANT_PATTERN', () => {
   it('rejects a completely malformed string', () => {
     expect(isUnambiguousIsoInstant('not-a-date')).toBe(false);
     expect(isUnambiguousIsoInstant('')).toBe(false);
+  });
+});
+
+describe('generateWeeklyOccurrences', () => {
+  it('returns exactly occurrenceCount occurrences, with occurrence 0 equal to the input', () => {
+    const occurrences = generateWeeklyOccurrences(
+      '2026-08-04T06:00:00.000Z', // Tue 09:00 Kyiv
+      '2026-08-04T06:30:00.000Z',
+      8,
+      OFFICE_TIMEZONE,
+    );
+    expect(occurrences).toHaveLength(8);
+    expect(occurrences[0]).toEqual({
+      startUtc: '2026-08-04T06:00:00.000Z',
+      endUtc: '2026-08-04T06:30:00.000Z',
+    });
+  });
+
+  it('spaces occurrences exactly 7 days apart with no DST transition in range', () => {
+    const occurrences = generateWeeklyOccurrences(
+      '2026-08-04T06:00:00.000Z',
+      '2026-08-04T06:30:00.000Z',
+      4,
+      OFFICE_TIMEZONE,
+    );
+    expect(occurrences.map((o) => o.startUtc)).toEqual([
+      '2026-08-04T06:00:00.000Z',
+      '2026-08-11T06:00:00.000Z',
+      '2026-08-18T06:00:00.000Z',
+      '2026-08-25T06:00:00.000Z',
+    ]);
+  });
+
+  it('keeps office-local wall-clock time and weekday across the spring-forward transition', () => {
+    // Anchor two weeks before 2026-03-29 (spring-forward); the 3rd and 4th
+    // occurrences fall on/after it.
+    const occurrences = generateWeeklyOccurrences(
+      '2026-03-10T07:00:00.000Z', // Tue 09:00 Kyiv (EET, UTC+2)
+      '2026-03-10T07:30:00.000Z',
+      4,
+      OFFICE_TIMEZONE,
+    );
+    expect(occurrences.map((o) => o.startUtc)).toEqual([
+      '2026-03-10T07:00:00.000Z', // EET: 09:00 Kyiv
+      '2026-03-17T07:00:00.000Z', // EET: 09:00 Kyiv
+      '2026-03-24T07:00:00.000Z', // EET: still before the transition
+      '2026-03-31T06:00:00.000Z', // EEST: UTC instant shifts, but stays 09:00 Kyiv
+    ]);
+    for (const occurrence of occurrences) {
+      const parts = toZonedParts(occurrence.startUtc, OFFICE_TIMEZONE);
+      expect(parts.hour).toBe(9);
+      expect(parts.minute).toBe(0);
+      expect(parts.weekday).toBe(2); // Tuesday, every time
+    }
+  });
+
+  it('keeps office-local wall-clock time and weekday across the fall-back transition', () => {
+    // Anchor two weeks before 2026-10-25 (fall-back); the 3rd and 4th
+    // occurrences fall on/after it.
+    const occurrences = generateWeeklyOccurrences(
+      '2026-10-13T06:00:00.000Z', // Tue 09:00 Kyiv (EEST, UTC+3)
+      '2026-10-13T06:30:00.000Z',
+      4,
+      OFFICE_TIMEZONE,
+    );
+    expect(occurrences.map((o) => o.startUtc)).toEqual([
+      '2026-10-13T06:00:00.000Z', // EEST: 09:00 Kyiv
+      '2026-10-20T06:00:00.000Z', // EEST: 09:00 Kyiv
+      '2026-10-27T07:00:00.000Z', // EET: UTC instant shifts, but stays 09:00 Kyiv
+      '2026-11-03T07:00:00.000Z', // EET: 09:00 Kyiv
+    ]);
+    for (const occurrence of occurrences) {
+      const parts = toZonedParts(occurrence.startUtc, OFFICE_TIMEZONE);
+      expect(parts.hour).toBe(9);
+      expect(parts.minute).toBe(0);
+      expect(parts.weekday).toBe(2);
+    }
+  });
+
+  it('preserves duration across a DST transition', () => {
+    const occurrences = generateWeeklyOccurrences(
+      '2026-10-13T06:00:00.000Z',
+      '2026-10-13T07:00:00.000Z', // 1 hour
+      4,
+      OFFICE_TIMEZONE,
+    );
+    for (const occurrence of occurrences) {
+      expect(getDurationMinutes(occurrence.startUtc, occurrence.endUtc)).toBe(60);
+    }
+  });
+
+  it('resolves an arbitrary IANA zone, not just the office zone', () => {
+    const occurrences = generateWeeklyOccurrences(
+      '2026-01-15T14:00:00.000Z', // 09:00 America/New_York (UTC-5)
+      '2026-01-15T14:30:00.000Z',
+      2,
+      'America/New_York',
+    );
+    expect(occurrences[1]!.startUtc).toBe('2026-01-22T14:00:00.000Z');
   });
 });

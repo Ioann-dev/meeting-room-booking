@@ -36,36 +36,73 @@ function buildDto(overrides: Partial<CreateBookingDto> = {}): CreateBookingDto {
   return Object.assign(dto, overrides);
 }
 
+function buildSeriesDto(overrides: Partial<CreateBookingDto> = {}): CreateBookingDto {
+  return buildDto({
+    startAt: '2026-06-02T06:00:00.000Z', // Tue 09:00 Kyiv
+    endAt: '2026-06-02T06:30:00.000Z',
+    recurrence: { occurrenceCount: 3 },
+    ...overrides,
+  });
+}
+
 function buildService(overrides: {
   findUniqueRoom?: jest.Mock;
   create?: jest.Mock;
   findManyBooking?: jest.Mock;
   findUniqueBooking?: jest.Mock;
   update?: jest.Mock;
+  createSeriesRow?: jest.Mock;
+  findUniqueSeries?: jest.Mock;
+  updateSeries?: jest.Mock;
+  updateManyBooking?: jest.Mock;
+  transaction?: jest.Mock;
 }) {
-  const prisma = {
+  const booking = {
+    create:
+      overrides.create ??
+      jest.fn().mockResolvedValue({
+        id: 'booking-1',
+        roomId: 'room-1',
+        title: 'Sprint Planning',
+        startAt: new Date('2026-06-01T06:00:00.000Z'),
+        endAt: new Date('2026-06-01T06:30:00.000Z'),
+        seriesId: null,
+        userId: 'user-1',
+        user: { name: 'Ivan Test' },
+      }),
+    findMany: overrides.findManyBooking ?? jest.fn().mockResolvedValue([]),
+    findUnique: overrides.findUniqueBooking ?? jest.fn(),
+    update: overrides.update ?? jest.fn(),
+    updateMany: overrides.updateManyBooking ?? jest.fn().mockResolvedValue({ count: 0 }),
+  };
+  const bookingSeries = {
+    create: overrides.createSeriesRow ?? jest.fn().mockResolvedValue({ id: 'series-1' }),
+    findUnique:
+      overrides.findUniqueSeries ??
+      jest.fn().mockResolvedValue({ id: 'series-1', ownerId: 'user-1', status: 'ACTIVE' }),
+    update: overrides.updateSeries ?? jest.fn().mockResolvedValue({}),
+  };
+  const prismaStub: Record<string, unknown> = {
     room: {
       findUnique: overrides.findUniqueRoom ?? jest.fn().mockResolvedValue({ id: 'room-1' }),
     },
-    booking: {
-      create:
-        overrides.create ??
-        jest.fn().mockResolvedValue({
-          id: 'booking-1',
-          roomId: 'room-1',
-          title: 'Sprint Planning',
-          startAt: new Date('2026-06-01T06:00:00.000Z'),
-          endAt: new Date('2026-06-01T06:30:00.000Z'),
-          seriesId: null,
-          userId: 'user-1',
-          user: { name: 'Ivan Test' },
-        }),
-      findMany: overrides.findManyBooking ?? jest.fn().mockResolvedValue([]),
-      findUnique: overrides.findUniqueBooking ?? jest.fn(),
-      update: overrides.update ?? jest.fn(),
-    },
-  } as unknown as PrismaService;
-  return new BookingService(prisma);
+    booking,
+    bookingSeries,
+  };
+  // Mirrors both $transaction call shapes the service uses: an interactive
+  // callback (createSeries) and a plain array of already-constructed query
+  // promises (cancelSeries). Neither form has real cross-query atomicity
+  // here -- that's exactly what the real-Postgres e2e/db-spec tests exist
+  // to prove instead.
+  prismaStub.$transaction =
+    overrides.transaction ??
+    jest.fn(async (arg: unknown) => {
+      if (Array.isArray(arg)) {
+        return Promise.all(arg as Promise<unknown>[]);
+      }
+      return (arg as (tx: typeof prismaStub) => Promise<unknown>)(prismaStub);
+    });
+  return new BookingService(prismaStub as unknown as PrismaService);
 }
 
 describe('BookingService.create', () => {
@@ -567,5 +604,187 @@ describe('standardized error codes', () => {
     await expect(foreignCancel.cancel('booking-1', 'someone-else')).rejects.toMatchObject({
       response: { code: 'FORBIDDEN_CANCELLATION' },
     });
+  });
+});
+
+describe('BookingService.createSeries', () => {
+  it('throws NotFoundException when the room does not exist', async () => {
+    const service = buildService({ findUniqueRoom: jest.fn().mockResolvedValue(null) });
+
+    await expect(
+      service.createSeries(buildSeriesDto(), buildSeriesDto().recurrence!, REQUESTER),
+    ).rejects.toThrow(NotFoundException);
+  });
+
+  it('applies the same timing validation as create() to every occurrence', async () => {
+    const service = buildService({});
+    const dto = buildSeriesDto({
+      startAt: '2026-06-02T06:15:00.000Z', // off the 30-minute grid
+      endAt: '2026-06-02T06:45:00.000Z',
+    });
+
+    await expect(service.createSeries(dto, dto.recurrence!, REQUESTER)).rejects.toMatchObject({
+      response: { code: 'SLOT_MISALIGNED' },
+    });
+  });
+
+  it('creates every occurrence with series metadata and returns a series summary', async () => {
+    const createSeriesRow = jest.fn().mockResolvedValue({ id: 'series-1' });
+    const create = jest.fn().mockImplementation(({ data }: { data: Record<string, unknown> }) =>
+      Promise.resolve({
+        id: `booking-${String(data.startAt)}`,
+        roomId: data.roomId,
+        title: data.title,
+        startAt: data.startAt,
+        endAt: data.endAt,
+        seriesId: data.seriesId,
+        userId: data.userId,
+        user: { name: 'Ivan Test' },
+      }),
+    );
+    const service = buildService({ createSeriesRow, create });
+    const dto = buildSeriesDto(); // Tue 09:00-09:30 Kyiv, 3 occurrences
+
+    const result = await service.createSeries(dto, dto.recurrence!, REQUESTER);
+
+    expect(result.seriesId).toBe('series-1');
+    expect(result.occurrenceCount).toBe(3);
+    expect(result.bookings).toHaveLength(3);
+    expect(result.bookings.every((b) => b.seriesId === 'series-1')).toBe(true);
+    expect(result.bookings.map((b) => b.startAt)).toEqual([
+      '2026-06-02T06:00:00.000Z',
+      '2026-06-09T06:00:00.000Z',
+      '2026-06-16T06:00:00.000Z',
+    ]);
+
+    const [seriesCallArgs] = createSeriesRow.mock.calls[0] as [{ data: Record<string, unknown> }];
+    expect(seriesCallArgs.data).toMatchObject({
+      ownerId: 'user-1',
+      roomId: 'room-1',
+      weekday: 2, // Tuesday
+      startMinute: 9 * 60,
+      endMinute: 9 * 60 + 30,
+      occurrenceCount: 3,
+    });
+    expect(create).toHaveBeenCalledTimes(3);
+  });
+
+  it('rejects via the pre-check when an existing booking overlaps a later occurrence, naming it', async () => {
+    const findManyBooking = jest.fn().mockResolvedValue([
+      {
+        // Overlaps only the 2nd occurrence (2026-06-09), not the 1st or 3rd.
+        startAt: new Date('2026-06-09T06:15:00.000Z'),
+        endAt: new Date('2026-06-09T07:00:00.000Z'),
+      },
+    ]);
+    const service = buildService({ findManyBooking });
+    const dto = buildSeriesDto();
+
+    const rejection = service.createSeries(dto, dto.recurrence!, REQUESTER);
+
+    await expect(rejection).rejects.toMatchObject({ response: { code: 'SERIES_CONFLICT' } });
+    await rejection.catch((error: { response: { conflictingOccurrenceIndex: number } }) => {
+      expect(error.response.conflictingOccurrenceIndex).toBe(1);
+    });
+  });
+
+  it('rolls back and reports the occurrence when the transaction itself hits a conflict', async () => {
+    const conflictError = new Prisma.PrismaClientKnownRequestError(
+      'Database error, please retry.',
+      {
+        code: 'P2039',
+        clientVersion: 'test',
+        meta: { driverAdapterError: { cause: { code: '23P01' } } },
+      },
+    );
+    // Succeeds for occurrence 0, then the database itself rejects
+    // occurrence 1 (simulating a race the pre-check didn't catch).
+    const create = jest
+      .fn()
+      .mockResolvedValueOnce({
+        id: 'booking-0',
+        roomId: 'room-1',
+        title: 'Sprint Planning',
+        startAt: new Date('2026-06-02T06:00:00.000Z'),
+        endAt: new Date('2026-06-02T06:30:00.000Z'),
+        seriesId: 'series-1',
+        userId: 'user-1',
+        user: { name: 'Ivan Test' },
+      })
+      .mockRejectedValueOnce(conflictError);
+    const service = buildService({ create });
+    const dto = buildSeriesDto();
+
+    const rejection = service.createSeries(dto, dto.recurrence!, REQUESTER);
+
+    await expect(rejection).rejects.toMatchObject({ response: { code: 'SERIES_CONFLICT' } });
+    await rejection.catch((error: { response: { conflictingOccurrenceIndex: number } }) => {
+      expect(error.response.conflictingOccurrenceIndex).toBe(1);
+    });
+  });
+});
+
+describe('BookingService.cancelSeries', () => {
+  it('throws NotFoundException when the series does not exist', async () => {
+    const service = buildService({ findUniqueSeries: jest.fn().mockResolvedValue(null) });
+
+    await expect(service.cancelSeries('series-1', 'user-1')).rejects.toThrow(NotFoundException);
+  });
+
+  it('throws ForbiddenException for a non-owner and does not touch any rows', async () => {
+    const updateManyBooking = jest.fn();
+    const updateSeries = jest.fn();
+    const service = buildService({
+      findUniqueSeries: jest
+        .fn()
+        .mockResolvedValue({ id: 'series-1', ownerId: 'owner-1', status: 'ACTIVE' }),
+      updateManyBooking,
+      updateSeries,
+    });
+
+    await expect(service.cancelSeries('series-1', 'someone-else')).rejects.toMatchObject({
+      response: { code: 'FORBIDDEN_CANCELLATION' },
+    });
+    expect(updateManyBooking).not.toHaveBeenCalled();
+    expect(updateSeries).not.toHaveBeenCalled();
+  });
+
+  it('is idempotent for an already-cancelled series owned by the requester', async () => {
+    const transaction = jest.fn();
+    const service = buildService({
+      findUniqueSeries: jest
+        .fn()
+        .mockResolvedValue({ id: 'series-1', ownerId: 'user-1', status: 'CANCELLED' }),
+      transaction,
+    });
+
+    await expect(service.cancelSeries('series-1', 'user-1')).resolves.toBeUndefined();
+    expect(transaction).not.toHaveBeenCalled();
+  });
+
+  it('cancels every active occurrence and marks the series cancelled, atomically', async () => {
+    const updateManyBooking = jest.fn().mockResolvedValue({ count: 2 });
+    const updateSeries = jest.fn().mockResolvedValue({});
+    const service = buildService({
+      findUniqueSeries: jest
+        .fn()
+        .mockResolvedValue({ id: 'series-1', ownerId: 'user-1', status: 'ACTIVE' }),
+      updateManyBooking,
+      updateSeries,
+    });
+
+    await service.cancelSeries('series-1', 'user-1');
+
+    const [updateManyArgs] = updateManyBooking.mock.calls[0] as [
+      { where: { seriesId: string; status: string }; data: { status: string } },
+    ];
+    expect(updateManyArgs.where).toEqual({ seriesId: 'series-1', status: 'ACTIVE' });
+    expect(updateManyArgs.data.status).toBe('CANCELLED');
+
+    const [updateSeriesArgs] = updateSeries.mock.calls[0] as [
+      { where: { id: string }; data: { status: string } },
+    ];
+    expect(updateSeriesArgs.where).toEqual({ id: 'series-1' });
+    expect(updateSeriesArgs.data.status).toBe('CANCELLED');
   });
 });
