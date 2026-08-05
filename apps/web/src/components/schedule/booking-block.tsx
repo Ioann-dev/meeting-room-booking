@@ -1,5 +1,6 @@
 'use client';
 
+import type { CSSProperties } from 'react';
 import type { BookingSummary } from 'shared';
 import { cn } from '@/lib/cn';
 
@@ -22,12 +23,25 @@ export function BookingBlock({
   currentTimeFraction,
 }: BookingBlockProps) {
   return (
-    <td rowSpan={rowSpan} className="relative border-b border-border p-0 align-top">
+    <td rowSpan={rowSpan} className="relative overflow-hidden border-b border-border p-0 align-top">
       <button
         type="button"
         onClick={(event) => onSelect(booking, event.currentTarget)}
+        style={{ '--row-span': rowSpan } as CSSProperties}
         className={cn(
-          'flex h-full min-h-11 w-full flex-col items-start gap-0.5 border-l-2 px-2 py-1.5 text-left transition-colors md:min-h-8',
+          // A booking's own content (long title, dense metadata) must never
+          // be what determines this row's height -- min+max pinned to the
+          // same calc() value (rather than a single fixed `height`) keeps
+          // this cooperating with a table row that a *different* cell makes
+          // taller (e.g. the time-rail's own two-line zone label), while
+          // still making it impossible for this button's own content to be
+          // the thing that inflates it. overflow-hidden clips whatever
+          // doesn't fit; the two half-hour-unit values (2.75rem/2rem) are
+          // the same narrow/desktop numbers SlotCell uses, so a booking's
+          // rendered height always stays exactly rowSpan x that unit.
+          'flex w-full flex-col items-start gap-0.5 overflow-hidden border-l-2 px-2 py-1.5 text-left transition-colors',
+          'min-h-[calc(2.75rem*var(--row-span))] max-h-[calc(2.75rem*var(--row-span))]',
+          'md:min-h-[calc(2rem*var(--row-span))] md:max-h-[calc(2rem*var(--row-span))]',
           booking.isOwnBooking
             ? 'border-l-accent bg-accent-tint hover:bg-accent-tint/70'
             : 'border-l-transparent bg-canvas hover:bg-border/40',

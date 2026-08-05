@@ -29,7 +29,13 @@ export function SlotCell({
           aria-label={`Select ${label}`}
           aria-pressed={isSelected}
           className={cn(
-            'h-full min-h-11 w-full transition-colors hover:bg-accent-tint/60 md:min-h-8',
+            // `block`: a bare <button> defaults to inline-block, which adds a
+            // baseline-alignment gap inside a table cell (the browser reserves
+            // space for the surrounding line box) -- that gap alone was already
+            // pushing every row past its intended 32px/44px unit, before any
+            // booking content was involved. See BookingBlock for the matching
+            // fix plus the actual content-driven height cap.
+            'block h-full min-h-11 w-full transition-colors hover:bg-accent-tint/60 md:min-h-8',
             isSelected && 'bg-accent-tint ring-1 ring-inset ring-accent',
           )}
         />
