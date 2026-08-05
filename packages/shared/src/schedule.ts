@@ -19,20 +19,31 @@ export interface OfficeWeekDay {
   weekday: number;
 }
 
+// A fixed 7-element tuple (rather than OfficeWeekDay[]) so consumers can
+// safely index days[0]/days[6] for the week's first/last day under
+// noUncheckedIndexedAccess, without an unnecessary `| undefined`.
+export type OfficeWeek = readonly [
+  OfficeWeekDay,
+  OfficeWeekDay,
+  OfficeWeekDay,
+  OfficeWeekDay,
+  OfficeWeekDay,
+  OfficeWeekDay,
+  OfficeWeekDay,
+];
+
 /** The 7 office-local calendar dates making up the week starting at `weekStartUtc`. */
-export function getOfficeWeekDays(
-  weekStartUtc: Instant,
-  zone: string = OFFICE_TIMEZONE,
-): OfficeWeekDay[] {
+export function getOfficeWeekDays(weekStartUtc: Instant, zone: string = OFFICE_TIMEZONE): OfficeWeek {
   const start = toZonedParts(weekStartUtc, zone);
   const startDate = DateTime.fromObject(
     { year: start.year, month: start.month, day: start.day },
     { zone },
   );
-  return Array.from({ length: 7 }, (_, i) => {
+  const days = Array.from({ length: 7 }, (_, i) => {
     const d = startDate.plus({ days: i });
     return { year: d.year, month: d.month, day: d.day, weekday: d.weekday };
   });
+  return days as unknown as OfficeWeek;
 }
 
 export interface OfficeSlot {

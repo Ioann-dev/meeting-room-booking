@@ -7,3 +7,9 @@ export async function fetchRooms(minCapacity?: number): Promise<RoomSummary[]> {
   await throwIfError(response);
   return (await response.json()) as RoomSummary[];
 }
+
+export async function fetchRoom(roomId: string): Promise<RoomSummary> {
+  const response = await fetch(`/api/rooms/${roomId}`);
+  await throwIfError(response);
+  return (await response.json()) as RoomSummary;
+}

@@ -1,8 +1,12 @@
+import Link from 'next/link';
 import type { RoomSummary } from 'shared';
 
 export function RoomCard({ room }: { room: RoomSummary }) {
   return (
-    <div className="flex h-full flex-col gap-4 rounded-lg border border-border bg-surface p-4">
+    <Link
+      href={`/schedule/${room.id}`}
+      className="flex h-full flex-col gap-4 rounded-lg border border-border bg-surface p-4 transition-colors hover:border-border-strong hover:bg-canvas"
+    >
       <div>
         <p className="text-sm font-semibold text-ink">{room.name}</p>
         <p className="mt-0.5 text-xs text-ink-subtle">Floor {room.floor}</p>
@@ -23,6 +27,6 @@ export function RoomCard({ room }: { room: RoomSummary }) {
         </svg>
         <span className="tabular-nums">Seats {room.capacity}</span>
       </div>
-    </div>
+    </Link>
   );
 }
