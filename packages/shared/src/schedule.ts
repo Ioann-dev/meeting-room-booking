@@ -33,7 +33,10 @@ export type OfficeWeek = readonly [
 ];
 
 /** The 7 office-local calendar dates making up the week starting at `weekStartUtc`. */
-export function getOfficeWeekDays(weekStartUtc: Instant, zone: string = OFFICE_TIMEZONE): OfficeWeek {
+export function getOfficeWeekDays(
+  weekStartUtc: Instant,
+  zone: string = OFFICE_TIMEZONE,
+): OfficeWeek {
   const start = toZonedParts(weekStartUtc, zone);
   const startDate = DateTime.fromObject(
     { year: start.year, month: start.month, day: start.day },

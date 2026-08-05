@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useParams, usePathname, useRouter, useSearchParams } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   getAdjacentOfficeWeek,
   getTodayDayIndex,
@@ -26,7 +26,11 @@ import { ApiError } from '@/lib/api-error';
 import { formatClock } from '@/lib/format-clock';
 import { fetchRoom } from '@/lib/rooms-client';
 import { fetchRoomSchedule } from '@/lib/schedule-client';
-import { todayWeekParam, weekParamToReferenceDate, weekStartToWeekParam } from '@/lib/schedule-week';
+import {
+  todayWeekParam,
+  weekParamToReferenceDate,
+  weekStartToWeekParam,
+} from '@/lib/schedule-week';
 
 type LoadState =
   | { phase: 'error'; message: string; notFound: boolean }
@@ -34,7 +38,9 @@ type LoadState =
 
 function formatSelectedSlotLabel(startInstant: string, zone: string): string {
   const start = toZonedParts(startInstant, zone);
-  const endInstant = new Date(new Date(startInstant).getTime() + SLOT_MINUTES * 60_000).toISOString();
+  const endInstant = new Date(
+    new Date(startInstant).getTime() + SLOT_MINUTES * 60_000,
+  ).toISOString();
   const end = toZonedParts(endInstant, zone);
   const dateLabel = new Date(Date.UTC(start.year, start.month - 1, start.day)).toLocaleDateString(
     'en-US',
@@ -62,6 +68,7 @@ export function RoomScheduleView() {
   const [attempt, setAttempt] = useState(0);
   const [result, setResult] = useState<{ requestKey: string; state: LoadState } | null>(null);
   const [selectedBooking, setSelectedBooking] = useState<BookingSummary | null>(null);
+  const bookingTriggerRef = useRef<HTMLButtonElement | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -129,7 +136,9 @@ export function RoomScheduleView() {
 
   const displayZone = userTimeZone ?? OFFICE_TIMEZONE;
   const selectedSlotStart =
-    slotStartParam && isUnambiguousIsoInstant(slotStartParam) && (now === null || slotStartParam > now)
+    slotStartParam &&
+    isUnambiguousIsoInstant(slotStartParam) &&
+    (now === null || slotStartParam > now)
       ? slotStartParam
       : null;
 
@@ -192,7 +201,10 @@ export function RoomScheduleView() {
           onRetry={notFound ? undefined : () => setAttempt((current) => current + 1)}
         />
         {notFound && (
-          <Link href="/schedule" className="text-sm font-medium text-accent hover:text-accent-strong">
+          <Link
+            href="/schedule"
+            className="text-sm font-medium text-accent hover:text-accent-strong"
+          >
             Back to all rooms
           </Link>
         )}
@@ -224,7 +236,10 @@ export function RoomScheduleView() {
         userTimeZone={userTimeZone}
         selectedSlotStart={selectedSlotStart}
         onSelectSlot={handleSelectSlot}
-        onSelectBooking={setSelectedBooking}
+        onSelectBooking={(booking, trigger) => {
+          bookingTriggerRef.current = trigger;
+          setSelectedBooking(booking);
+        }}
         now={now}
       />
       <BookingDetailDialog
@@ -234,10 +249,22 @@ export function RoomScheduleView() {
             setSelectedBooking(null);
           }
         }}
-        browserStartLabel={selectedBooking ? formatBookingTime(selectedBooking.startAt, displayZone) : ''}
-        browserEndLabel={selectedBooking ? formatBookingTime(selectedBooking.endAt, displayZone) : ''}
-        officeStartLabel={selectedBooking ? formatBookingTime(selectedBooking.startAt, OFFICE_TIMEZONE) : ''}
-        officeEndLabel={selectedBooking ? formatBookingTime(selectedBooking.endAt, OFFICE_TIMEZONE) : ''}
+        onCloseAutoFocus={(event) => {
+          event.preventDefault();
+          bookingTriggerRef.current?.focus();
+        }}
+        browserStartLabel={
+          selectedBooking ? formatBookingTime(selectedBooking.startAt, displayZone) : ''
+        }
+        browserEndLabel={
+          selectedBooking ? formatBookingTime(selectedBooking.endAt, displayZone) : ''
+        }
+        officeStartLabel={
+          selectedBooking ? formatBookingTime(selectedBooking.startAt, OFFICE_TIMEZONE) : ''
+        }
+        officeEndLabel={
+          selectedBooking ? formatBookingTime(selectedBooking.endAt, OFFICE_TIMEZONE) : ''
+        }
         showOfficeEquivalent={showOfficeEquivalent}
       />
     </div>

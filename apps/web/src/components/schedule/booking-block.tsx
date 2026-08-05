@@ -8,7 +8,7 @@ interface BookingBlockProps {
   rowSpan: number;
   startLabel: string;
   endLabel: string;
-  onSelect: (booking: BookingSummary) => void;
+  onSelect: (booking: BookingSummary, trigger: HTMLButtonElement) => void;
   /** 0-1 fraction of this block's height where the current-time line falls, if it does. */
   currentTimeFraction?: number;
 }
@@ -25,7 +25,7 @@ export function BookingBlock({
     <td rowSpan={rowSpan} className="relative border-b border-border p-0 align-top">
       <button
         type="button"
-        onClick={() => onSelect(booking)}
+        onClick={(event) => onSelect(booking, event.currentTarget)}
         className={cn(
           'flex h-full min-h-8 w-full flex-col items-start gap-0.5 border-l-2 px-2 py-1.5 text-left transition-colors',
           booking.isOwnBooking

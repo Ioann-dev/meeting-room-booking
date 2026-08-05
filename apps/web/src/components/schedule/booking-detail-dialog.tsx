@@ -6,6 +6,7 @@ import { Dialog } from '@/components/ui/dialog';
 interface BookingDetailDialogProps {
   booking: BookingSummary | null;
   onOpenChange: (open: boolean) => void;
+  onCloseAutoFocus?: (event: Event) => void;
   browserStartLabel: string;
   browserEndLabel: string;
   officeStartLabel: string;
@@ -16,6 +17,7 @@ interface BookingDetailDialogProps {
 export function BookingDetailDialog({
   booking,
   onOpenChange,
+  onCloseAutoFocus,
   browserStartLabel,
   browserEndLabel,
   officeStartLabel,
@@ -23,7 +25,12 @@ export function BookingDetailDialog({
   showOfficeEquivalent,
 }: BookingDetailDialogProps) {
   return (
-    <Dialog open={booking !== null} onOpenChange={onOpenChange} title={booking?.title ?? 'Booking'}>
+    <Dialog
+      open={booking !== null}
+      onOpenChange={onOpenChange}
+      onCloseAutoFocus={onCloseAutoFocus}
+      title={booking?.title ?? 'Booking'}
+    >
       {booking && (
         <dl className="flex flex-col gap-3 text-sm">
           <div className="flex items-center justify-between gap-4">

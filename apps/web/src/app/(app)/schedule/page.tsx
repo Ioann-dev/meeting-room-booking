@@ -11,9 +11,7 @@ import { RoomList } from '@/components/rooms/room-list';
 import { ApiError } from '@/lib/api-error';
 import { fetchRooms } from '@/lib/rooms-client';
 
-type LoadState =
-  | { phase: 'error'; message: string }
-  | { phase: 'ready'; rooms: RoomSummary[] };
+type LoadState = { phase: 'error'; message: string } | { phase: 'ready'; rooms: RoomSummary[] };
 
 interface Result {
   requestKey: string;

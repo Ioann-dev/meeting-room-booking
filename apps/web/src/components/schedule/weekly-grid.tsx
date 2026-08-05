@@ -27,7 +27,7 @@ interface WeeklyGridProps {
   /** UTC ISO instant of the currently-selected free slot's start, or null. */
   selectedSlotStart: string | null;
   onSelectSlot: (isoInstant: string) => void;
-  onSelectBooking: (booking: BookingSummary) => void;
+  onSelectBooking: (booking: BookingSummary, trigger: HTMLButtonElement) => void;
   /** UTC ISO instant for "now", resolved client-side only (see the schedule page). */
   now: string | null;
 }
@@ -61,15 +61,43 @@ export function WeeklyGrid({
   const dayColumns = bookingsByDay.map((dayBookings) => buildDayColumn(dayBookings, totalRows));
 
   const todayDayIndex = now !== null ? getTodayDayIndex(now, schedule.weekStartUtc) : null;
-  const currentTimePosition = now !== null ? getCurrentTimePosition(now, schedule.weekStartUtc) : null;
+  const currentTimePosition =
+    now !== null ? getCurrentTimePosition(now, schedule.weekStartUtc) : null;
 
   function bookingClockLabel(instant: string): string {
     const parts = toZonedParts(instant, displayZone);
     return formatClock(parts.hour, parts.minute);
   }
 
+  // The time rail's primary label is always office-local (the grid's rows
+  // are Kyiv slot boundaries, per getBookingPosition), but booking blocks
+  // display their own time in the viewer's zone -- so without a second
+  // label here, a block reading "08:00" sitting in the row labeled "09:00"
+  // would look like a mismatch instead of the same instant in two zones.
+  // Derived from the week's Monday: correct for every realistic viewer zone,
+  // and at worst (a same-week DST shift, or an offset large enough to cross
+  // a calendar day) only this secondary label could drift by the shift
+  // amount -- the row's Kyiv identity and every booking's own displayed
+  // time are unaffected either way.
+  const showRailBrowserLabel = displayZone !== OFFICE_TIMEZONE;
+  function railBrowserLabel(hour: number, minute: number): string | null {
+    if (!showRailBrowserLabel) {
+      return null;
+    }
+    const instant = zonedWallTimeToUtc(
+      { year: days[0].year, month: days[0].month, day: days[0].day, hour, minute },
+      OFFICE_TIMEZONE,
+    );
+    const parts = toZonedParts(instant, displayZone);
+    return formatClock(parts.hour, parts.minute);
+  }
+
   return (
-    <div className="overflow-x-auto rounded-lg border border-border bg-surface">
+    // A bounded max-height is what makes overflow-y actually scroll *inside*
+    // this box instead of the whole page -- without it, the box only ever
+    // grows to fit its content and the sticky day header/time rail never
+    // engage, since there is nothing for them to stay pinned against.
+    <div className="max-h-[70vh] overflow-auto rounded-lg border border-border bg-surface">
       <table className="w-full min-w-[46rem] border-collapse text-sm">
         <caption className="sr-only">
           Weekly schedule for {roomName}, week starting {days[0].month}/{days[0].day}/{days[0].year}
@@ -80,7 +108,7 @@ export function WeeklyGrid({
               scope="col"
               className="sticky left-0 top-0 z-20 w-16 border-b border-r border-border bg-surface p-2 text-left text-[11px] font-medium uppercase tracking-wide text-ink-subtle"
             >
-              Time
+              Kyiv
             </th>
             {days.map((day, dayIndex) => (
               <th
@@ -109,9 +137,14 @@ export function WeeklyGrid({
             <tr key={slot.rowIndex}>
               <th
                 scope="row"
-                className="tabular-nums sticky left-0 z-10 border-b border-r border-border bg-surface px-2 py-1 text-right text-xs font-normal text-ink-subtle"
+                className="sticky left-0 z-10 border-b border-r border-border bg-surface px-2 py-1 text-right text-xs font-normal text-ink-subtle"
               >
-                {formatClock(slot.hour, slot.minute)}
+                <span className="tabular-nums block">{formatClock(slot.hour, slot.minute)}</span>
+                {showRailBrowserLabel && (
+                  <span className="tabular-nums block text-[10px] text-ink-faint">
+                    {railBrowserLabel(slot.hour, slot.minute)}
+                  </span>
+                )}
               </th>
               {days.map((day, dayIndex) => {
                 const cell = dayColumns[dayIndex]![slot.rowIndex]!;
@@ -144,7 +177,13 @@ export function WeeklyGrid({
                 }
 
                 const slotInstant = zonedWallTimeToUtc(
-                  { year: day.year, month: day.month, day: day.day, hour: slot.hour, minute: slot.minute },
+                  {
+                    year: day.year,
+                    month: day.month,
+                    day: day.day,
+                    hour: slot.hour,
+                    minute: slot.minute,
+                  },
                   OFFICE_TIMEZONE,
                 );
                 const isPast = now !== null && slotInstant < now;

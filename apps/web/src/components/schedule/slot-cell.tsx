@@ -11,7 +11,13 @@ interface SlotCellProps {
   currentTimeFraction?: number;
 }
 
-export function SlotCell({ isPast, isSelected, onSelect, label, currentTimeFraction }: SlotCellProps) {
+export function SlotCell({
+  isPast,
+  isSelected,
+  onSelect,
+  label,
+  currentTimeFraction,
+}: SlotCellProps) {
   return (
     <td className="relative border-b border-border p-0">
       {isPast ? (
