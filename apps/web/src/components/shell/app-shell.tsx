@@ -3,6 +3,7 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import { useCurrentUser } from '@/hooks/use-current-user';
+import { UserTimeZoneProvider } from '@/hooks/use-user-time-zone';
 import { ErrorState } from '@/components/ui/error-state';
 import { Spinner } from '@/components/ui/spinner';
 import { OfficeZoneNotice } from '@/components/office-zone-notice';
@@ -71,18 +72,23 @@ export function AppShell({ children }: { children: ReactNode }) {
   }
 
   return (
-    <div className="flex min-h-screen flex-col">
-      <a
-        href="#main-content"
-        className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-50 focus:rounded-md focus:bg-surface focus:px-4 focus:py-2 focus:text-sm focus:font-medium focus:text-ink focus:shadow-md"
-      >
-        Skip to content
-      </a>
-      <AppHeader user={user} onLoggedOut={clearUser} />
-      <main id="main-content" className="mx-auto w-full max-w-6xl flex-1 px-4 py-8 sm:px-6 lg:px-8">
-        <OfficeZoneNotice />
-        <div className="mt-6 first:mt-0">{children}</div>
-      </main>
-    </div>
+    <UserTimeZoneProvider>
+      <div className="flex min-h-screen flex-col">
+        <a
+          href="#main-content"
+          className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-50 focus:rounded-md focus:bg-surface focus:px-4 focus:py-2 focus:text-sm focus:font-medium focus:text-ink focus:shadow-md"
+        >
+          Skip to content
+        </a>
+        <AppHeader user={user} onLoggedOut={clearUser} />
+        <main
+          id="main-content"
+          className="mx-auto w-full max-w-6xl flex-1 px-4 py-8 sm:px-6 lg:px-8"
+        >
+          <OfficeZoneNotice />
+          <div className="mt-6 first:mt-0">{children}</div>
+        </main>
+      </div>
+    </UserTimeZoneProvider>
   );
 }
