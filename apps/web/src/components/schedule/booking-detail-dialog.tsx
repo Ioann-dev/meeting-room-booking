@@ -9,9 +9,24 @@ interface BookingDetailDialogProps {
   onCloseAutoFocus?: (event: Event) => void;
   browserStartLabel: string;
   browserEndLabel: string;
+  /** Whole-day offset of browserStartLabel's date from the Kyiv-anchored booking date; 0 if the same day. */
+  browserStartDayOffset: number;
+  /** Whole-day offset of browserEndLabel's date from the Kyiv-anchored booking date; 0 if the same day. */
+  browserEndDayOffset: number;
   officeStartLabel: string;
   officeEndLabel: string;
   showOfficeEquivalent: boolean;
+}
+
+function DayOffsetNote({ offsetDays }: { offsetDays: number }) {
+  if (offsetDays === 0) {
+    return null;
+  }
+  return (
+    <span className="ml-0.5 whitespace-nowrap text-xs font-normal text-ink-subtle">
+      ({offsetDays > 0 ? `+${offsetDays}` : offsetDays}d)
+    </span>
+  );
 }
 
 export function BookingDetailDialog({
@@ -20,6 +35,8 @@ export function BookingDetailDialog({
   onCloseAutoFocus,
   browserStartLabel,
   browserEndLabel,
+  browserStartDayOffset,
+  browserEndDayOffset,
   officeStartLabel,
   officeEndLabel,
   showOfficeEquivalent,
@@ -41,7 +58,11 @@ export function BookingDetailDialog({
             <dt className="text-ink-subtle">Time</dt>
             <dd className="text-right font-medium text-ink">
               <span className="tabular-nums">
-                {browserStartLabel}–{browserEndLabel}
+                {browserStartLabel}
+                <DayOffsetNote offsetDays={browserStartDayOffset} />
+                {'–'}
+                {browserEndLabel}
+                <DayOffsetNote offsetDays={browserEndDayOffset} />
               </span>
               {showOfficeEquivalent && (
                 <span className="block text-xs font-normal tabular-nums text-ink-subtle">

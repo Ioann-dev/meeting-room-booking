@@ -89,6 +89,35 @@ function diffInOfficeCalendarDays(
   return Math.round(to.diff(from, 'days').days);
 }
 
+/**
+ * Whole calendar-day offset of `instant`'s date in `zone` relative to its
+ * date in `referenceZone` (positive if `zone`'s calendar day comes after
+ * `referenceZone`'s for this same instant, negative if before, 0 if the
+ * same). Used to flag when a viewer-zone time label could be misread as
+ * belonging to a different day than the office-local (Kyiv) date the
+ * underlying booking structurally belongs to -- the grid's own row/column
+ * placement is unaffected either way, since that is always computed
+ * directly in the office zone via getBookingPosition, never derived from
+ * this offset.
+ */
+export function getZonedDateOffsetDays(
+  instant: Instant,
+  zone: string,
+  referenceZone: string = OFFICE_TIMEZONE,
+): number {
+  const inZone = toZonedParts(instant, zone);
+  const inReference = toZonedParts(instant, referenceZone);
+  return diffInOfficeCalendarDays(
+    inReference.year,
+    inReference.month,
+    inReference.day,
+    inZone.year,
+    inZone.month,
+    inZone.day,
+    referenceZone,
+  );
+}
+
 export interface BookingPosition {
   /** 0 = Monday's column .. 6 = Sunday's column. */
   dayIndex: number;

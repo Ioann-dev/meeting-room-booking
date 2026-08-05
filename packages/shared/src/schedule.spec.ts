@@ -7,6 +7,7 @@ import {
   getOfficeSlots,
   getOfficeWeekDays,
   getTodayDayIndex,
+  getZonedDateOffsetDays,
 } from './schedule';
 
 // Same fixed 2026 Kyiv DST transitions documented in time.spec.ts:
@@ -62,7 +63,10 @@ describe('getOfficeSlots', () => {
 });
 
 describe('getBookingPosition', () => {
-  const weekStartUtc = getOfficeWeekBoundaries('2026-06-03T10:00:00.000Z', OFFICE_TIMEZONE).startUtc;
+  const weekStartUtc = getOfficeWeekBoundaries(
+    '2026-06-03T10:00:00.000Z',
+    OFFICE_TIMEZONE,
+  ).startUtc;
 
   it('places a booking on the correct day, row, and span', () => {
     // Wednesday 2026-06-03, 10:00-11:00 Kyiv-local (EEST, UTC+3) = 07:00-08:00Z
@@ -105,7 +109,10 @@ describe('getBookingPosition', () => {
   });
 
   it('places a booking correctly across the Kyiv DST spring-forward week', () => {
-    const dstWeekStart = getOfficeWeekBoundaries('2026-03-29T10:00:00.000Z', OFFICE_TIMEZONE).startUtc;
+    const dstWeekStart = getOfficeWeekBoundaries(
+      '2026-03-29T10:00:00.000Z',
+      OFFICE_TIMEZONE,
+    ).startUtc;
     // Sunday 2026-03-29 (the transition day), 10:00-10:30 Kyiv-local, already
     // EEST (UTC+3) since the jump happens at 01:00 UTC = 04:00 local.
     expect(
@@ -120,7 +127,10 @@ describe('getBookingPosition', () => {
 });
 
 describe('getTodayDayIndex / getCurrentTimePosition', () => {
-  const weekStartUtc = getOfficeWeekBoundaries('2026-06-03T10:00:00.000Z', OFFICE_TIMEZONE).startUtc;
+  const weekStartUtc = getOfficeWeekBoundaries(
+    '2026-06-03T10:00:00.000Z',
+    OFFICE_TIMEZONE,
+  ).startUtc;
 
   it('identifies which column is today', () => {
     // Thursday 2026-06-04
@@ -133,9 +143,9 @@ describe('getTodayDayIndex / getCurrentTimePosition', () => {
 
   it('computes a fractional current-time row offset within office hours', () => {
     // Thursday 2026-06-04, 10:15 Kyiv-local (EEST, UTC+3) = 07:15Z
-    expect(getCurrentTimePosition('2026-06-04T07:15:00.000Z', weekStartUtc, OFFICE_TIMEZONE)).toEqual(
-      { dayIndex: 3, rowOffset: 2.5 },
-    );
+    expect(
+      getCurrentTimePosition('2026-06-04T07:15:00.000Z', weekStartUtc, OFFICE_TIMEZONE),
+    ).toEqual({ dayIndex: 3, rowOffset: 2.5 });
   });
 
   it('returns null outside office hours even on a visible day', () => {
@@ -163,5 +173,57 @@ describe('getAdjacentOfficeWeek', () => {
     const beforeDst = getOfficeWeekBoundaries('2026-03-22T10:00:00.000Z', OFFICE_TIMEZONE);
     const next = getAdjacentOfficeWeek(beforeDst.startUtc, 'next', OFFICE_TIMEZONE);
     expect(next).toEqual(getOfficeWeekBoundaries('2026-03-29T10:00:00.000Z', OFFICE_TIMEZONE));
+  });
+});
+
+describe('getZonedDateOffsetDays', () => {
+  it('is 0 when the viewer zone stays on the same calendar day as Kyiv', () => {
+    // Wednesday 2026-06-03, 10:00 Kyiv-local (EEST, UTC+3) = 07:00Z.
+    // Berlin (CEST, UTC+2) reads this as 09:00 the same day.
+    expect(
+      getZonedDateOffsetDays('2026-06-03T07:00:00.000Z', 'Europe/Berlin', OFFICE_TIMEZONE),
+    ).toBe(0);
+  });
+
+  it('is positive when a distant-ahead viewer zone reads the instant as the next calendar day', () => {
+    // Wednesday 2026-06-03, 18:30 Kyiv-local (EEST, UTC+3) = 15:30Z.
+    // Pacific/Kiritimati (UTC+14, no DST) reads this as 05:30 on 2026-06-04.
+    expect(
+      getZonedDateOffsetDays('2026-06-03T15:30:00.000Z', 'Pacific/Kiritimati', OFFICE_TIMEZONE),
+    ).toBe(1);
+  });
+
+  it('is negative when a distant-behind viewer zone reads the instant as the previous calendar day', () => {
+    // Wednesday 2026-06-03, 09:00 Kyiv-local (EEST, UTC+3) = 06:00Z.
+    // Pacific/Honolulu (UTC-10, no DST) reads this as 20:00 on 2026-06-02.
+    expect(
+      getZonedDateOffsetDays('2026-06-03T06:00:00.000Z', 'Pacific/Honolulu', OFFICE_TIMEZONE),
+    ).toBe(-1);
+  });
+
+  it('handles a single booking asymmetrically: start same-day, end next-day', () => {
+    // A booking's start and end need not carry the same offset -- a Kyiv
+    // 12:00-13:00 booking can read as "today" at its start and "tomorrow"
+    // at its end for the same distant-ahead viewer zone.
+    const start = getZonedDateOffsetDays(
+      '2026-06-03T09:00:00.000Z', // 12:00 Kyiv-local
+      'Pacific/Kiritimati',
+      OFFICE_TIMEZONE,
+    );
+    const end = getZonedDateOffsetDays(
+      '2026-06-03T10:00:00.000Z', // 13:00 Kyiv-local
+      'Pacific/Kiritimati',
+      OFFICE_TIMEZONE,
+    );
+    expect(start).toBe(0);
+    expect(end).toBe(1);
+  });
+
+  it('stays correct across the Kyiv DST spring-forward transition', () => {
+    // Sunday 2026-03-29 (the transition day), 18:30 Kyiv-local, already
+    // EEST (UTC+3) since the jump happens at 01:00 UTC = 04:00 local.
+    expect(
+      getZonedDateOffsetDays('2026-03-29T15:30:00.000Z', 'Pacific/Kiritimati', OFFICE_TIMEZONE),
+    ).toBe(1);
   });
 });

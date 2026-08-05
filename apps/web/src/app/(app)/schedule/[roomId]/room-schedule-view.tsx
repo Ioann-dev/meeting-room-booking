@@ -6,6 +6,7 @@ import { useEffect, useRef, useState } from 'react';
 import {
   getAdjacentOfficeWeek,
   getTodayDayIndex,
+  getZonedDateOffsetDays,
   isUnambiguousIsoInstant,
   OFFICE_TIMEZONE,
   SLOT_MINUTES,
@@ -258,6 +259,16 @@ export function RoomScheduleView() {
         }
         browserEndLabel={
           selectedBooking ? formatBookingTime(selectedBooking.endAt, displayZone) : ''
+        }
+        browserStartDayOffset={
+          selectedBooking
+            ? getZonedDateOffsetDays(selectedBooking.startAt, displayZone, OFFICE_TIMEZONE)
+            : 0
+        }
+        browserEndDayOffset={
+          selectedBooking
+            ? getZonedDateOffsetDays(selectedBooking.endAt, displayZone, OFFICE_TIMEZONE)
+            : 0
         }
         officeStartLabel={
           selectedBooking ? formatBookingTime(selectedBooking.startAt, OFFICE_TIMEZONE) : ''
