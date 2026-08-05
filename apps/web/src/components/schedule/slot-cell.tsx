@@ -21,7 +21,7 @@ export function SlotCell({
   return (
     <td className="relative border-b border-border p-0">
       {isPast ? (
-        <div aria-hidden="true" className="h-full min-h-8 w-full bg-canvas/70" />
+        <div aria-hidden="true" className="h-full min-h-11 w-full bg-canvas/70 md:min-h-8" />
       ) : (
         <button
           type="button"
@@ -29,7 +29,7 @@ export function SlotCell({
           aria-label={`Select ${label}`}
           aria-pressed={isSelected}
           className={cn(
-            'h-full min-h-8 w-full transition-colors hover:bg-accent-tint/60',
+            'h-full min-h-11 w-full transition-colors hover:bg-accent-tint/60 md:min-h-8',
             isSelected && 'bg-accent-tint ring-1 ring-inset ring-accent',
           )}
         />

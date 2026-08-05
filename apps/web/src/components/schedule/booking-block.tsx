@@ -27,7 +27,7 @@ export function BookingBlock({
         type="button"
         onClick={(event) => onSelect(booking, event.currentTarget)}
         className={cn(
-          'flex h-full min-h-8 w-full flex-col items-start gap-0.5 border-l-2 px-2 py-1.5 text-left transition-colors',
+          'flex h-full min-h-11 w-full flex-col items-start gap-0.5 border-l-2 px-2 py-1.5 text-left transition-colors md:min-h-8',
           booking.isOwnBooking
             ? 'border-l-accent bg-accent-tint hover:bg-accent-tint/70'
             : 'border-l-transparent bg-canvas hover:bg-border/40',
