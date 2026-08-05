@@ -98,7 +98,7 @@ export function WeeklyGrid({
     // grows to fit its content and the sticky day header/time rail never
     // engage, since there is nothing for them to stay pinned against.
     <div className="max-h-[70vh] overflow-auto rounded-lg border border-border bg-surface">
-      <table className="w-full min-w-[46rem] border-collapse text-sm">
+      <table className="w-full min-w-[46rem] table-fixed border-collapse text-sm">
         <caption className="sr-only">
           Weekly schedule for {roomName}, week starting {days[0].month}/{days[0].day}/{days[0].year}
         </caption>
@@ -137,11 +137,21 @@ export function WeeklyGrid({
             <tr key={slot.rowIndex}>
               <th
                 scope="row"
-                className="sticky left-0 z-10 border-b border-r border-border bg-surface px-2 py-1 text-right text-xs font-normal text-ink-subtle"
+                className={cn(
+                  // Pinned to the exact same per-row unit as SlotCell/BookingBlock --
+                  // this is the one deterministic row-height source every cell type
+                  // agrees on. The two-line dual-zone label must fit inside that
+                  // budget (see leading-none below); it must never be the thing that
+                  // grows the row, or booking blocks (pinned independently to
+                  // rowSpan x unit) fall out of alignment with the actual gridlines.
+                  'sticky left-0 z-10 min-h-11 max-h-11 border-b border-r border-border bg-surface px-2 py-0.5 text-right text-xs font-normal text-ink-subtle md:min-h-8 md:max-h-8',
+                )}
               >
-                <span className="tabular-nums block">{formatClock(slot.hour, slot.minute)}</span>
+                <span className="tabular-nums block leading-none">
+                  {formatClock(slot.hour, slot.minute)}
+                </span>
                 {showRailBrowserLabel && (
-                  <span className="tabular-nums block text-[10px] text-ink-faint">
+                  <span className="tabular-nums block text-[10px] leading-none text-ink-faint">
                     {railBrowserLabel(slot.hour, slot.minute)}
                   </span>
                 )}
