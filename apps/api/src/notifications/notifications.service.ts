@@ -98,8 +98,24 @@ export class NotificationsService {
    * otherwise be a unique-violation error on a booking re-seen across
    * multiple ticks into a silent, correct no-op.
    */
+  // A transient DB outage must not turn into an unhandled rejection --
+  // there is no caller to report to (the scheduler fires this itself), and
+  // the check is naturally self-healing: the next tick 30s later just
+  // tries again against the same query, so logging and returning is the
+  // whole recovery strategy needed here.
   @Interval(CHECK_INTERVAL_MS)
   async runEndingSoonCheck(): Promise<void> {
+    try {
+      await this.checkEndingSoon();
+    } catch (error) {
+      this.logger.error(
+        'Ending-soon notification check failed',
+        error instanceof Error ? error.stack : error,
+      );
+    }
+  }
+
+  private async checkEndingSoon(): Promise<void> {
     const notifyBeforeMinutes = this.getNotifyBeforeMinutes();
     const now = new Date();
     const windowEnd = new Date(now.getTime() + notifyBeforeMinutes * 60_000);
