@@ -19,7 +19,10 @@ interface MobileNavProps {
   triggerRef: RefObject<HTMLButtonElement | null>;
 }
 
-const NAV_ITEMS = [{ href: '/schedule', label: 'Schedule' }] as const;
+const NAV_ITEMS = [
+  { href: '/schedule', label: 'Schedule' },
+  { href: '/my-bookings', label: 'My Bookings' },
+] as const;
 
 export function MobileNav({ open, onOpenChange, user, onLoggedOut, triggerRef }: MobileNavProps) {
   const pathname = usePathname();
@@ -92,12 +95,6 @@ export function MobileNav({ open, onOpenChange, user, onLoggedOut, triggerRef }:
                 </Link>
               );
             })}
-            <span
-              aria-disabled="true"
-              className="cursor-not-allowed rounded-md px-3 py-2 text-sm font-medium text-ink-faint"
-            >
-              My Bookings
-            </span>
           </nav>
 
           <div className="mt-auto flex flex-col gap-3 border-t border-border pt-4">

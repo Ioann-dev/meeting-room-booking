@@ -30,6 +30,7 @@ import { useUserTimeZone } from '@/hooks/use-user-time-zone';
 import { ApiError } from '@/lib/api-error';
 import { isBookingSeriesSummary } from '@/lib/booking-client';
 import { formatClock } from '@/lib/format-clock';
+import { formatRangeLabel } from '@/lib/format-range';
 import { fetchRoom } from '@/lib/rooms-client';
 import { fetchRoomSchedule } from '@/lib/schedule-client';
 import {
@@ -41,16 +42,6 @@ import {
 type LoadState =
   | { phase: 'error'; message: string; notFound: boolean }
   | { phase: 'ready'; room: RoomSummary; schedule: RoomScheduleResponse };
-
-function formatRangeLabel(startInstant: string, endInstant: string, zone: string): string {
-  const start = toZonedParts(startInstant, zone);
-  const end = toZonedParts(endInstant, zone);
-  const dateLabel = new Date(Date.UTC(start.year, start.month - 1, start.day)).toLocaleDateString(
-    'en-US',
-    { weekday: 'long', month: 'short', day: 'numeric' },
-  );
-  return `${dateLabel} · ${formatClock(start.hour, start.minute)}–${formatClock(end.hour, end.minute)}`;
-}
 
 function formatSelectedSlotLabel(startInstant: string, zone: string): string {
   const endInstant = new Date(
