@@ -44,7 +44,19 @@ export function Dialog({
           aria-modal="true"
           onCloseAutoFocus={onCloseAutoFocus}
           className={cn(
-            'fixed left-1/2 top-1/2 z-50 w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 rounded-lg border border-border bg-surface p-6 shadow-md',
+            'fixed z-50 border border-border bg-surface p-6 shadow-md',
+            // Below sm: bottom sheet -- full width, anchored to the
+            // bottom edge, capped height with its own scroll so content
+            // (e.g. the booking form's full field stack) can never push
+            // past the viewport. No enter/exit animation: Radix unmounts
+            // Content immediately on close (no forceMount), so animating
+            // the close transition would need Presence-aware exit
+            // handling -- a bigger change to a primitive with existing
+            // focus-return coverage that isn't worth the risk for
+            // "nonessential" motion this late in the roadmap.
+            'inset-x-0 bottom-0 max-h-[85dvh] overflow-y-auto rounded-t-lg',
+            // sm and up: the original centered dialog, unchanged.
+            'sm:inset-auto sm:bottom-auto sm:left-1/2 sm:top-1/2 sm:w-[calc(100%-2rem)] sm:max-w-md sm:max-h-none sm:-translate-x-1/2 sm:-translate-y-1/2 sm:overflow-visible sm:rounded-lg',
             className,
           )}
         >
