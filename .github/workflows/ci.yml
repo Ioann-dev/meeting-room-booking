@@ -1,0 +1,70 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  quality:
+    name: Format, lint, typecheck, unit tests, build
+    runs-on: ubuntu-latest
+    env:
+      # Only needed so `prisma generate` (apps/api's postinstall) has a
+      # syntactically valid URL to read; nothing in this job connects to a
+      # real database.
+      DATABASE_URL: postgresql://app:app@localhost:5432/meeting_room_booking?schema=public
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - run: npm ci
+
+      - run: npm run format:check
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build
+
+  integration:
+    name: API integration tests (real Postgres)
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: app
+          POSTGRES_PASSWORD: app
+          POSTGRES_DB: meeting_room_booking
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U app -d meeting_room_booking"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql://app:app@localhost:5432/meeting_room_booking?schema=public
+      TEST_DATABASE_URL: postgresql://app:app@localhost:5432/meeting_room_booking_test?schema=public
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - run: npm ci
+
+      # The Postgres service only creates POSTGRES_DB itself; the isolated
+      # test database is normally created by docker/postgres-init's init
+      # script (a fresh volume only), which doesn't apply to this service
+      # container -- so it's created directly here instead.
+      - name: Create isolated test database
+        run: psql "$DATABASE_URL" -c "CREATE DATABASE meeting_room_booking_test;"
+
+      - run: npm run test:integration
