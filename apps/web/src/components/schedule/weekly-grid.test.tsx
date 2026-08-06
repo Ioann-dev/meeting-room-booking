@@ -43,26 +43,72 @@ function renderGrid(booking: BookingSummary | null, userTimeZone: string | null 
   );
 }
 
-describe('WeeklyGrid day-column width stability (H1)', () => {
-  it('locks the table to table-layout: fixed so column width cannot be driven by cell content', () => {
+/** The day-columns table is the one carrying table-fixed; the rail table doesn't. */
+function getDayTable(): HTMLElement {
+  return screen.getAllByRole('table').find((table) => table.className.includes('table-fixed'))!;
+}
+
+function getRailTable(): HTMLElement {
+  return screen.getAllByRole('table').find((table) => !table.className.includes('table-fixed'))!;
+}
+
+describe('WeeklyGrid sticky time rail isolation (NEW-1)', () => {
+  it('renders the time rail and the day columns as two separate tables, not one shared table', () => {
     renderGrid(null);
-    const table = screen.getByRole('table');
-    expect(table.className).toContain('table-fixed');
+    expect(screen.getAllByRole('table')).toHaveLength(2);
+  });
+
+  it('never uses left-axis sticky positioning on a table cell -- that combination is what let scrolled day-column content visually bleed through the rail (a real, reproducible Chromium compositing bug for sticky <th>/<td>, confirmed by comparing against an identical non-table sticky <div> that did not bleed)', () => {
+    renderGrid(null);
+    const allCells = [
+      ...getRailTable().querySelectorAll('th, td'),
+      ...getDayTable().querySelectorAll('th, td'),
+    ];
+    for (const cell of allCells) {
+      expect(cell.className).not.toMatch(/(?:^|\s)left-0(?:\s|$)/);
+    }
+  });
+
+  it("keeps the rail table outside the day table's own horizontal scroll container", () => {
+    renderGrid(null);
+    const railTable = getRailTable();
+    const dayTable = getDayTable();
+    // The day table's horizontal scroll wrapper must not be an ancestor of
+    // the rail table -- otherwise the rail would scroll away with it.
+    const dayScrollAncestor = dayTable.closest('.overflow-x-auto');
+    expect(dayScrollAncestor).not.toBeNull();
+    expect(dayScrollAncestor!.contains(railTable)).toBe(false);
+  });
+
+  it('gives the rail and day tables matching header heights so their rows stay aligned without needing to be the same physical table', () => {
+    renderGrid(null);
+    const railHeaderWrapper = getRailTable().querySelector('thead th > div')!;
+    expect(railHeaderWrapper.className).toContain('min-h-14');
+    // The day table always renders a (possibly invisible) "Today" line so
+    // its header height is deterministic regardless of which day, if any,
+    // is today -- matching the rail header's fixed min-h-14 without a
+    // runtime measurement dependency between the two tables.
+    const todayLines = getDayTable().querySelectorAll('thead th span:last-child');
+    expect(todayLines.length).toBeGreaterThan(0);
+    for (const line of todayLines) {
+      expect(line.textContent).toBe('Today');
+    }
+  });
+});
+
+describe('WeeklyGrid day-column width stability (H1)', () => {
+  it('locks the day table to table-layout: fixed so column width cannot be driven by cell content', () => {
+    renderGrid(null);
+    expect(getDayTable().className).toContain('table-fixed');
   });
 
   it('renders a long unbroken booking title without changing the day-column width definition', () => {
     const { unmount } = renderGrid(null);
-    const emptyWidthClasses = screen
-      .getAllByRole('columnheader')
-      .slice(1) // skip the Kyiv rail header
-      .map((th) => th.className);
+    const emptyWidthClasses = screen.getAllByRole('columnheader').map((th) => th.className);
     unmount();
 
     renderGrid(longTitleBooking());
-    const longTitleWidthClasses = screen
-      .getAllByRole('columnheader')
-      .slice(1)
-      .map((th) => th.className);
+    const longTitleWidthClasses = screen.getAllByRole('columnheader').map((th) => th.className);
 
     // Column-defining markup must be identical whether or not a booking with
     // an unbroken 100+ character title is present -- table-fixed decouples
@@ -75,11 +121,17 @@ describe('WeeklyGrid day-column width stability (H1)', () => {
 describe('WeeklyGrid temporal row geometry (M1)', () => {
   it('pins the time-rail row cell to the same nominal per-row unit as SlotCell/BookingBlock', () => {
     renderGrid(null);
+    // The height constraint lives on the inner div, not the <th> itself --
+    // table cells don't reliably honor min-height/max-height as a row-
+    // sizing floor when alone in a single-column table (verified live: an
+    // identical constraint placed directly on the <th> was silently
+    // ignored by the browser's row-sizing algorithm).
     const railCell = screen.getAllByRole('rowheader')[0]!;
-    expect(railCell.className).toContain('min-h-11');
-    expect(railCell.className).toContain('max-h-11');
-    expect(railCell.className).toContain('md:min-h-8');
-    expect(railCell.className).toContain('md:max-h-8');
+    const heightWrapper = railCell.querySelector('div')!;
+    expect(heightWrapper.className).toContain('min-h-11');
+    expect(heightWrapper.className).toContain('max-h-11');
+    expect(heightWrapper.className).toContain('md:min-h-8');
+    expect(heightWrapper.className).toContain('md:max-h-8');
   });
 
   it('renders the dual-zone secondary label with tightened line-height so it fits the pinned row budget', () => {
