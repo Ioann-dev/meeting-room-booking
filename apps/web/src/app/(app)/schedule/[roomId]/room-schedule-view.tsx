@@ -11,19 +11,24 @@ import {
   OFFICE_TIMEZONE,
   SLOT_MINUTES,
   toZonedParts,
+  type BookingSeriesSummary,
   type BookingSummary,
   type RoomScheduleResponse,
   type RoomSummary,
 } from 'shared';
 import { ErrorState } from '@/components/ui/error-state';
 import { Skeleton } from '@/components/ui/skeleton';
+import { useToast } from '@/components/ui/toast';
 import { RoomHeader } from '@/components/schedule/room-header';
 import { WeekNavigation } from '@/components/schedule/week-navigation';
 import { WeeklyGrid } from '@/components/schedule/weekly-grid';
 import { SelectedSlotSummary } from '@/components/schedule/selected-slot-summary';
 import { BookingDetailDialog } from '@/components/schedule/booking-detail-dialog';
+import { BookingCreateDialog } from '@/components/schedule/booking-create-dialog';
+import { useCurrentUser } from '@/hooks/use-current-user';
 import { useUserTimeZone } from '@/hooks/use-user-time-zone';
 import { ApiError } from '@/lib/api-error';
+import { isBookingSeriesSummary } from '@/lib/booking-client';
 import { formatClock } from '@/lib/format-clock';
 import { fetchRoom } from '@/lib/rooms-client';
 import { fetchRoomSchedule } from '@/lib/schedule-client';
@@ -37,17 +42,21 @@ type LoadState =
   | { phase: 'error'; message: string; notFound: boolean }
   | { phase: 'ready'; room: RoomSummary; schedule: RoomScheduleResponse };
 
-function formatSelectedSlotLabel(startInstant: string, zone: string): string {
+function formatRangeLabel(startInstant: string, endInstant: string, zone: string): string {
   const start = toZonedParts(startInstant, zone);
-  const endInstant = new Date(
-    new Date(startInstant).getTime() + SLOT_MINUTES * 60_000,
-  ).toISOString();
   const end = toZonedParts(endInstant, zone);
   const dateLabel = new Date(Date.UTC(start.year, start.month - 1, start.day)).toLocaleDateString(
     'en-US',
     { weekday: 'long', month: 'short', day: 'numeric' },
   );
   return `${dateLabel} · ${formatClock(start.hour, start.minute)}–${formatClock(end.hour, end.minute)}`;
+}
+
+function formatSelectedSlotLabel(startInstant: string, zone: string): string {
+  const endInstant = new Date(
+    new Date(startInstant).getTime() + SLOT_MINUTES * 60_000,
+  ).toISOString();
+  return formatRangeLabel(startInstant, endInstant, zone);
 }
 
 function formatBookingTime(instant: string, zone: string): string {
@@ -61,6 +70,8 @@ export function RoomScheduleView() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const userTimeZone = useUserTimeZone();
+  const { user } = useCurrentUser();
+  const { showToast } = useToast();
 
   const weekParam = searchParams.get('week');
   const slotStartParam = searchParams.get('slotStart');
@@ -69,7 +80,9 @@ export function RoomScheduleView() {
   const [attempt, setAttempt] = useState(0);
   const [result, setResult] = useState<{ requestKey: string; state: LoadState } | null>(null);
   const [selectedBooking, setSelectedBooking] = useState<BookingSummary | null>(null);
+  const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const bookingTriggerRef = useRef<HTMLButtonElement | null>(null);
+  const createTriggerRef = useRef<HTMLButtonElement | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -133,7 +146,14 @@ export function RoomScheduleView() {
     };
   }, [roomId, referenceDate, requestKey]);
 
-  const loading = requestKey === null || result === null || result.requestKey !== requestKey;
+  // Only the very first fetch (no result yet at all) blanks the page to
+  // skeletons. A post-mutation refresh (bumping `attempt`) instead keeps
+  // rendering the previous ready state while the new request is in
+  // flight -- otherwise every successful booking/cancel would flash the
+  // whole grid to skeletons, which reads as a jarring reload rather than
+  // an "immediate" update.
+  const firstLoad = requestKey === null || result === null;
+  const isRefreshing = !firstLoad && result.requestKey !== requestKey;
 
   const displayZone = userTimeZone ?? OFFICE_TIMEZONE;
   const selectedSlotStart =
@@ -178,7 +198,36 @@ export function RoomScheduleView() {
     updateSearchParams((next) => next.delete('slotStart'), 'replace');
   }
 
-  if (loading) {
+  function handleOpenCreateDialog(trigger: HTMLButtonElement) {
+    createTriggerRef.current = trigger;
+    setCreateDialogOpen(true);
+  }
+
+  function handleCreated(created: BookingSummary | BookingSeriesSummary) {
+    setCreateDialogOpen(false);
+    const message = isBookingSeriesSummary(created)
+      ? `Recurring booking confirmed — ${created.occurrenceCount} weekly occurrences.`
+      : `Booking confirmed for ${formatRangeLabel(created.startAt, created.endAt, displayZone)}.`;
+    showToast(message, 'success');
+    if (slotStartParam) {
+      handleClearSelection();
+    }
+    setAttempt((current) => current + 1);
+  }
+
+  function handleCancelled(scope: 'single' | 'occurrence' | 'series') {
+    setSelectedBooking(null);
+    const message =
+      scope === 'series'
+        ? 'Recurring booking series cancelled.'
+        : scope === 'occurrence'
+          ? 'This occurrence was cancelled.'
+          : 'Booking cancelled.';
+    showToast(message, 'success');
+    setAttempt((current) => current + 1);
+  }
+
+  if (firstLoad) {
     return (
       <div className="flex flex-col gap-6">
         <Skeleton className="h-12 w-64" />
@@ -218,8 +267,8 @@ export function RoomScheduleView() {
   const showOfficeEquivalent = userTimeZone !== null && userTimeZone !== OFFICE_TIMEZONE;
 
   return (
-    <div className="flex flex-col gap-6">
-      <RoomHeader room={room} />
+    <div className="flex flex-col gap-6" aria-busy={isRefreshing || undefined}>
+      <RoomHeader room={room} onBook={handleOpenCreateDialog} />
       <WeekNavigation
         weekStartUtc={schedule.weekStartUtc}
         isCurrentWeek={isCurrentWeek}
@@ -229,6 +278,7 @@ export function RoomScheduleView() {
         <SelectedSlotSummary
           label={formatSelectedSlotLabel(selectedSlotStart, displayZone)}
           onClear={handleClearSelection}
+          onBook={handleOpenCreateDialog}
         />
       )}
       <WeeklyGrid
@@ -254,6 +304,7 @@ export function RoomScheduleView() {
           event.preventDefault();
           bookingTriggerRef.current?.focus();
         }}
+        onCancelled={handleCancelled}
         browserStartLabel={
           selectedBooking ? formatBookingTime(selectedBooking.startAt, displayZone) : ''
         }
@@ -277,6 +328,20 @@ export function RoomScheduleView() {
           selectedBooking ? formatBookingTime(selectedBooking.endAt, OFFICE_TIMEZONE) : ''
         }
         showOfficeEquivalent={showOfficeEquivalent}
+      />
+      <BookingCreateDialog
+        open={createDialogOpen}
+        room={room}
+        weekStartUtc={schedule.weekStartUtc}
+        initialSlotStart={selectedSlotStart}
+        now={now}
+        emailVerified={user?.emailVerified ?? false}
+        onOpenChange={setCreateDialogOpen}
+        onCloseAutoFocus={(event) => {
+          event.preventDefault();
+          createTriggerRef.current?.focus();
+        }}
+        onCreated={handleCreated}
       />
     </div>
   );
