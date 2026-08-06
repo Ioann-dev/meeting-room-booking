@@ -37,11 +37,20 @@ export function BookingBlock({
           // still making it impossible for this button's own content to be
           // the thing that inflates it. overflow-hidden clips whatever
           // doesn't fit; the two half-hour-unit values (2.75rem/2rem) are
-          // the same narrow/desktop numbers SlotCell uses, so a booking's
-          // rendered height always stays exactly rowSpan x that unit.
+          // the same narrow/desktop numbers SlotCell uses.
+          //
+          // rowSpan x unit alone undercounts the true row pitch: adjacent
+          // rows each contribute a 1px border-b (collapsed, not doubled),
+          // so N spanned rows measure N*unit + (N-1)*1px top-to-bottom, not
+          // N*unit. Left uncorrected this is a deterministic, duration-
+          // dependent shortfall (0.5px at 30min growing to 7.5px at 4h),
+          // not sub-pixel rounding -- adding (rowSpan-1)*1px closes it,
+          // leaving only a constant, non-growing ~0.5px remainder.
           'flex w-full flex-col items-start gap-0.5 overflow-hidden border-l-2 px-2 py-1.5 text-left transition-colors',
-          'min-h-[calc(2.75rem*var(--row-span))] max-h-[calc(2.75rem*var(--row-span))]',
-          'md:min-h-[calc(2rem*var(--row-span))] md:max-h-[calc(2rem*var(--row-span))]',
+          'min-h-[calc(2.75rem*var(--row-span)_+_(var(--row-span)_-_1)*1px)]',
+          'max-h-[calc(2.75rem*var(--row-span)_+_(var(--row-span)_-_1)*1px)]',
+          'md:min-h-[calc(2rem*var(--row-span)_+_(var(--row-span)_-_1)*1px)]',
+          'md:max-h-[calc(2rem*var(--row-span)_+_(var(--row-span)_-_1)*1px)]',
           booking.isOwnBooking
             ? 'border-l-accent bg-accent-tint hover:bg-accent-tint/70'
             : 'border-l-transparent bg-canvas hover:bg-border/40',
