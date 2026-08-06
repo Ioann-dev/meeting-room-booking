@@ -1,0 +1,14 @@
+**/node_modules
+**/dist
+**/.next
+**/out
+**/coverage
+**/generated
+.git
+.serena
+.claude
+**/.env
+**/.env.*
+!**/.env.example
+**/*.log
+docker
