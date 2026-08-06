@@ -12,7 +12,8 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(function Select
       <select
         ref={ref}
         className={cn(
-          'w-full appearance-none rounded-md border border-border bg-surface px-3 py-2 pr-8 text-sm text-ink transition-colors',
+          // Same iOS-zoom rationale as Input: text-base below md:, text-sm restored at md:+.
+          'w-full appearance-none rounded-md border border-border bg-surface px-3 py-2 pr-8 text-base text-ink transition-colors md:text-sm',
           'hover:border-border-strong focus:border-accent',
           'disabled:cursor-not-allowed disabled:bg-canvas disabled:text-ink-faint',
           'aria-[invalid=true]:border-danger',

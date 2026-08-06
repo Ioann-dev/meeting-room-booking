@@ -62,7 +62,7 @@ export function MobileNav({ open, onOpenChange, user, onLoggedOut, triggerRef }:
             <RadixDialog.Title className="text-sm font-semibold text-ink">Menu</RadixDialog.Title>
             <RadixDialog.Close
               aria-label="Close menu"
-              className="rounded-md p-1.5 text-ink-muted hover:bg-canvas hover:text-ink"
+              className="flex h-11 w-11 items-center justify-center rounded-md text-ink-muted hover:bg-canvas hover:text-ink"
             >
               <svg viewBox="0 0 20 20" fill="none" aria-hidden="true" className="h-5 w-5">
                 <path
@@ -85,7 +85,7 @@ export function MobileNav({ open, onOpenChange, user, onLoggedOut, triggerRef }:
                   aria-current={active ? 'page' : undefined}
                   onClick={() => onOpenChange(false)}
                   className={cn(
-                    'rounded-md px-3 py-2 text-sm',
+                    'flex items-center rounded-md px-3 py-3 text-sm',
                     active
                       ? 'font-semibold text-accent'
                       : 'font-medium text-ink-muted hover:text-ink',

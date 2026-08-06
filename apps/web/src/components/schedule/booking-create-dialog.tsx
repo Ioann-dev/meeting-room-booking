@@ -250,7 +250,7 @@ function BookingCreateForm({
         />
       </FormField>
 
-      <label className="flex items-center gap-2 text-sm text-ink">
+      <label className="flex items-center gap-2 py-2.5 text-sm text-ink">
         <input
           type="checkbox"
           className="h-4 w-4 rounded border-border text-accent"

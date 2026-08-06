@@ -63,7 +63,7 @@ export function AppHeader({ user, onLoggedOut }: AppHeaderProps) {
           type="button"
           onClick={() => setMobileNavOpen(true)}
           aria-label="Open menu"
-          className="rounded-md p-2 text-ink-muted hover:bg-canvas hover:text-ink md:hidden"
+          className="rounded-md p-3 text-ink-muted hover:bg-canvas hover:text-ink md:hidden"
         >
           <svg viewBox="0 0 20 20" fill="none" aria-hidden="true" className="h-5 w-5">
             <path
