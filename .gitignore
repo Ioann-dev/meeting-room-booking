@@ -9,6 +9,11 @@
 **/*.tsbuildinfo
 apps/api/generated
 
+# Playwright artifacts
+**/test-results
+**/playwright-report
+**/blob-report
+
 # env files (keep committed examples)
 **/.env
 **/.env.*
