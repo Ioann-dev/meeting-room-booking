@@ -1,4 +1,5 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { getOfficeWeekBoundaries, OFFICE_TIMEZONE, type BookingSummary } from 'shared';
 import { WeeklyGrid } from './weekly-grid';
 
@@ -149,5 +150,69 @@ describe('WeeklyGrid temporal row geometry (M1)', () => {
     renderGrid(null, OFFICE_TIMEZONE);
     const railCell = screen.getAllByRole('rowheader')[0]!;
     expect(railCell.querySelectorAll('span')).toHaveLength(1);
+  });
+});
+
+describe('WeeklyGrid mobile day chips', () => {
+  function getChipGroup(): HTMLElement {
+    return screen.getByRole('group', { name: 'Select day' });
+  }
+
+  it('renders one chip per day with a weekday abbreviation and day number', () => {
+    renderGrid(null);
+    const chips = within(getChipGroup()).getAllByRole('button');
+    expect(chips).toHaveLength(7);
+    expect(chips[0]).toHaveTextContent('Mon');
+    expect(chips[0]).toHaveTextContent('1');
+    expect(chips[6]).toHaveTextContent('Sun');
+    expect(chips[6]).toHaveTextContent('7');
+  });
+
+  it('marks exactly one chip active via aria-current, defaulting to Monday when "now" is unresolved', () => {
+    renderGrid(null);
+    const chips = within(getChipGroup()).getAllByRole('button');
+    const current = chips.filter((chip) => chip.getAttribute('aria-current') === 'date');
+    expect(current).toHaveLength(1);
+    expect(current[0]).toHaveTextContent('1');
+  });
+
+  it("marks today's chip active once now resolves to a day inside the displayed week", () => {
+    // Wednesday of the rendered week (see weekStartUtc above).
+    render(
+      <WeeklyGrid
+        roomName="Copenhagen"
+        schedule={{ roomId: 'room-1', weekStartUtc, weekEndUtc, bookings: [] }}
+        userTimeZone="Europe/Berlin"
+        selectedSlotStart={null}
+        onSelectSlot={() => {}}
+        onSelectBooking={() => {}}
+        now="2026-06-03T10:00:00.000Z"
+      />,
+    );
+    const chips = within(getChipGroup()).getAllByRole('button');
+    const current = chips.filter((chip) => chip.getAttribute('aria-current') === 'date');
+    expect(current).toHaveLength(1);
+    expect(current[0]).toHaveTextContent('Wed');
+    expect(current[0]).toHaveTextContent('3');
+  });
+
+  it('scrolls the day-columns table when a chip is tapped', async () => {
+    renderGrid(null);
+    const scrollSpy = jest.spyOn(Element.prototype, 'scrollTo').mockImplementation(() => {});
+    const user = userEvent.setup();
+
+    const chips = within(getChipGroup()).getAllByRole('button');
+    await user.click(chips[4]!); // Friday
+
+    expect(scrollSpy).toHaveBeenCalledWith(expect.objectContaining({ behavior: 'smooth' }));
+    scrollSpy.mockRestore();
+  });
+
+  it('gives every chip a touch-friendly minimum size', () => {
+    renderGrid(null);
+    for (const chip of within(getChipGroup()).getAllByRole('button')) {
+      expect(chip.className).toContain('min-h-11');
+      expect(chip.className).toContain('min-w-11');
+    }
   });
 });
