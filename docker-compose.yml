@@ -21,5 +21,74 @@ services:
       timeout: 5s
       retries: 10
 
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      PORT: 4000
+      DATABASE_URL: postgresql://${POSTGRES_USER:-app}:${POSTGRES_PASSWORD:-app}@db:5432/${POSTGRES_DB:-meeting_room_booking}?schema=public
+      # The evaluator's own browser reaches web at this published host port,
+      # not at the internal `web` service name -- used only to build the
+      # (console-logged) email-verification link, see auth.service.ts.
+      WEB_ORIGIN: http://localhost:${WEB_PORT:-3000}
+      NOTIFY_BEFORE_MINUTES: ${NOTIFY_BEFORE_MINUTES:-10}
+    ports:
+      # Same localhost-only reasoning as db above -- this is an evaluation
+      # deployment, not a public rollout; change to 0.0.0.0 if LAN access
+      # from another device is genuinely wanted.
+      - '127.0.0.1:${API_PORT:-4000}:4000'
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "fetch('http://localhost:4000/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))",
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+      # Next bakes rewrites() (which reads API_ORIGIN) into the build at
+      # `next build` time, not runtime -- see apps/web/Dockerfile's own
+      # comment. The runtime `environment:` value below is kept in sync for
+      # documentation purposes but the build arg is what actually matters.
+      args:
+        API_ORIGIN: http://api:4000
+    restart: unless-stopped
+    depends_on:
+      api:
+        condition: service_healthy
+    environment:
+      PORT: 3000
+      # Internal service-to-service address for the /api/* rewrite (see
+      # apps/web/next.config.ts) -- distinct from WEB_ORIGIN above, which is
+      # the externally reachable address instead.
+      API_ORIGIN: http://api:4000
+    ports:
+      - '127.0.0.1:${WEB_PORT:-3000}:3000'
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "fetch('http://localhost:3000/login').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))",
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
 volumes:
   db_data:
