@@ -6,6 +6,7 @@ import { useRef, useState } from 'react';
 import type { CurrentUser } from 'shared';
 import { cn } from '@/lib/cn';
 import { MobileNav } from './mobile-nav';
+import { NotificationBell } from './notification-bell';
 import { UserMenu } from './user-menu';
 
 interface AppHeaderProps {
@@ -13,7 +14,10 @@ interface AppHeaderProps {
   onLoggedOut: () => void;
 }
 
-const NAV_ITEMS = [{ href: '/schedule', label: 'Schedule' }] as const;
+const NAV_ITEMS = [
+  { href: '/schedule', label: 'Schedule' },
+  { href: '/my-bookings', label: 'My Bookings' },
+] as const;
 
 export function AppHeader({ user, onLoggedOut }: AppHeaderProps) {
   const pathname = usePathname();
@@ -46,40 +50,11 @@ export function AppHeader({ user, onLoggedOut }: AppHeaderProps) {
                 </Link>
               );
             })}
-            <span
-              aria-disabled="true"
-              title="Coming soon"
-              className="cursor-not-allowed rounded-md px-3 py-2 text-sm font-medium text-ink-faint"
-            >
-              My Bookings
-            </span>
           </nav>
         </div>
 
         <div className="hidden items-center gap-1 md:flex">
-          <button
-            type="button"
-            disabled
-            aria-disabled="true"
-            aria-label="Notifications (coming soon)"
-            title="Notifications (coming soon)"
-            className="rounded-md p-2 text-ink-faint disabled:cursor-not-allowed"
-          >
-            <svg viewBox="0 0 20 20" fill="none" aria-hidden="true" className="h-5 w-5">
-              <path
-                d="M10 2.5c-2.3 0-4 1.9-4 4.3v2.1c0 .5-.2 1.3-.5 1.8l-1 1.7c-.6 1-.2 2.1.9 2.5 3.6 1.2 7.6 1.2 11.2 0 1-.3 1.5-1.5.9-2.5l-1-1.7c-.3-.5-.5-1.3-.5-1.8V6.8c0-2.4-1.8-4.3-4-4.3Z"
-                stroke="currentColor"
-                strokeWidth="1.4"
-                strokeLinejoin="round"
-              />
-              <path
-                d="M7.8 16.3a2.3 2.3 0 0 0 4.4 0"
-                stroke="currentColor"
-                strokeWidth="1.4"
-                strokeLinecap="round"
-              />
-            </svg>
-          </button>
+          <NotificationBell />
           <UserMenu user={user} onLoggedOut={onLoggedOut} />
         </div>
 
