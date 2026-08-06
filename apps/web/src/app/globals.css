@@ -11,11 +11,21 @@
   --color-canvas: #f6f7f7;
   --color-surface: #ffffff;
 
-  /* Ink (warm-neutral slate, not pure blue-gray) */
+  /* Ink (warm-neutral slate, not pure blue-gray). ink-subtle and
+     ink-faint are darkened from their original values: measured against
+     both `surface` and `canvas`, the original ink-faint (#99a1ab) failed
+     WCAG AA for normal text (~2.6:1, needs 4.5:1) and is used as real
+     content in several places (booking-block time ranges, My Bookings'
+     "Cancelled" indicator, notification timestamps), not just decoration.
+     The original ink-subtle (#6b7480) passed but with almost no margin
+     (~4.7:1) -- too little room to keep ink-faint visibly lighter while
+     also passing on its own, so both were re-picked together rather than
+     patching ink-faint in isolation. New values: ink-subtle ~5.25-5.6:1,
+     ink-faint ~4.4-5.1:1, verified against both backgrounds. */
   --color-ink: #12181f;
   --color-ink-muted: #3e4750;
-  --color-ink-subtle: #6b7480;
-  --color-ink-faint: #99a1ab;
+  --color-ink-subtle: #606873;
+  --color-ink-faint: #686e76;
 
   /* Borders */
   --color-border: #dfe3e6;

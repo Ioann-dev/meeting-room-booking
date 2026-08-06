@@ -76,7 +76,12 @@ export function BookingBlock({
           <span className="truncate">{booking.title}</span>
         </span>
         <span className="w-full truncate text-[11px] text-ink-subtle">{booking.authorName}</span>
-        <span className="tabular-nums text-[11px] text-ink-faint">
+        {/* ink-subtle, not ink-faint: this block's own-booking background
+            is accent-tint, noticeably darker than the surface/canvas
+            backgrounds ink-faint is calibrated against -- ink-faint text
+            here fails WCAG AA contrast (~4.47:1 of the required 4.5:1),
+            caught by the schedule page's automated a11y check. */}
+        <span className="tabular-nums text-[11px] text-ink-subtle">
           {startLabel}–{endLabel}
         </span>
         {booking.isOwnBooking && (
