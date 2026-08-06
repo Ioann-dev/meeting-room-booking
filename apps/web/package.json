@@ -12,6 +12,8 @@
   },
   "dependencies": {
     "@radix-ui/react-dialog": "^1.1.23",
+    "@radix-ui/react-popover": "^1.1.23",
+    "@radix-ui/react-tabs": "^1.1.21",
     "next": "16.2.12",
     "react": "19.2.4",
     "react-dom": "19.2.4",
