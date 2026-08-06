@@ -9,9 +9,16 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
-import type { BookingSeriesSummary, BookingSummary, RoomScheduleResponse } from 'shared';
+import type {
+  BookingSeriesSummary,
+  BookingSummary,
+  MyPastBookingsResponse,
+  MyUpcomingBookingsResponse,
+  RoomScheduleResponse,
+} from 'shared';
 import { BookingService } from './booking.service';
 import { CreateBookingDto } from './dto/create-booking.dto';
+import { MyBookingsQueryDto } from './dto/my-bookings-query.dto';
 import { ScheduleQueryDto } from './dto/schedule-query.dto';
 import { SessionGuard } from '../auth/guards/session.guard';
 import { EmailVerifiedGuard } from '../auth/guards/email-verified.guard';
@@ -45,6 +52,18 @@ export class BookingController {
     @CurrentUser() user: AuthenticatedUser,
   ): Promise<RoomScheduleResponse> {
     return this.bookingService.getRoomSchedule(query.roomId, query.referenceDate, user.id);
+  }
+
+  // scope=upcoming ignores cursor/limit entirely (see
+  // BookingService.listMineUpcoming); scope=past is the paginated list.
+  @Get('mine')
+  mine(
+    @Query() query: MyBookingsQueryDto,
+    @CurrentUser() user: AuthenticatedUser,
+  ): Promise<MyUpcomingBookingsResponse | MyPastBookingsResponse> {
+    return query.scope === 'upcoming'
+      ? this.bookingService.listMineUpcoming(user.id)
+      : this.bookingService.listMinePast(user.id, query.cursor, query.limit);
   }
 
   // Cancels one occurrence -- a series occurrence is just a Booking row

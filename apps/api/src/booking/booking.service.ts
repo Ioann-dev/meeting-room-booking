@@ -20,6 +20,9 @@ import {
   toZonedParts,
   type BookingSeriesSummary,
   type BookingSummary,
+  type MyBookingSummary,
+  type MyPastBookingsResponse,
+  type MyUpcomingBookingsResponse,
   type RoomScheduleResponse,
 } from 'shared';
 import { BookingSeriesStatus, BookingStatus, Prisma } from '../../generated/prisma/client';
@@ -47,6 +50,28 @@ type BookingWithAuthor = {
   seriesId: string | null;
   userId: string;
   user: { name: string };
+};
+
+const MY_BOOKING_SELECT = {
+  id: true,
+  roomId: true,
+  title: true,
+  startAt: true,
+  endAt: true,
+  status: true,
+  seriesId: true,
+  room: { select: { name: true } },
+} as const;
+
+type MyBookingRow = {
+  id: string;
+  roomId: string;
+  title: string;
+  startAt: Date;
+  endAt: Date;
+  status: BookingStatus;
+  seriesId: string | null;
+  room: { name: string };
 };
 
 @Injectable()
@@ -290,6 +315,72 @@ export class BookingService {
     };
   }
 
+  // Deliberately unpaginated: "future active bookings" for one user is
+  // small enough (bounded by how many rooms/slots exist) that a load-more
+  // control would be pure overhead here -- the spec only asks for
+  // pagination on the Past list, whose data only grows over time.
+  async listMineUpcoming(requesterId: string): Promise<MyUpcomingBookingsResponse> {
+    const now = new Date();
+    const bookings = await this.prisma.booking.findMany({
+      where: { userId: requesterId, status: BookingStatus.ACTIVE, endAt: { gt: now } },
+      orderBy: { startAt: 'asc' },
+      select: MY_BOOKING_SELECT,
+    });
+    return { items: bookings.map((booking) => this.toMySummary(booking)) };
+  }
+
+  // "Past" is everything not in Upcoming: a booking whose active occupancy
+  // has already ended, or one that was cancelled regardless of when it was
+  // scheduled for -- so every booking a user has ever made appears in
+  // exactly one of the two lists, and a cancelled-but-still-in-the-future
+  // booking doesn't just vanish from view.
+  async listMinePast(
+    requesterId: string,
+    cursor: string | undefined,
+    limit: number,
+  ): Promise<MyPastBookingsResponse> {
+    const now = new Date();
+    const cursorPosition = cursor ? decodeMyBookingsCursor(cursor) : null;
+
+    const pastPartition: Prisma.BookingWhereInput = {
+      OR: [
+        { status: BookingStatus.CANCELLED },
+        { status: BookingStatus.ACTIVE, endAt: { lte: now } },
+      ],
+    };
+    // A second, independent OR clause for the keyset cursor -- combined via
+    // a top-level AND array rather than merged into one `where.OR`, since a
+    // single `OR` key can only express one partition of the query at a time.
+    const cursorCondition: Prisma.BookingWhereInput | undefined = cursorPosition
+      ? {
+          OR: [
+            { startAt: { lt: cursorPosition.startAt } },
+            { startAt: cursorPosition.startAt, id: { lt: cursorPosition.id } },
+          ],
+        }
+      : undefined;
+
+    const rows = await this.prisma.booking.findMany({
+      where: {
+        userId: requesterId,
+        AND: cursorCondition ? [pastPartition, cursorCondition] : [pastPartition],
+      },
+      // id DESC as the tiebreaker matches the cursor's own (startAt, id)
+      // keyset comparison above, so pagination stays stable even across
+      // bookings that share an identical startAt.
+      orderBy: [{ startAt: 'desc' }, { id: 'desc' }],
+      take: limit + 1,
+      select: MY_BOOKING_SELECT,
+    });
+
+    const hasMore = rows.length > limit;
+    const page = hasMore ? rows.slice(0, limit) : rows;
+    const last = page[page.length - 1];
+    const nextCursor = hasMore && last ? encodeMyBookingsCursor(last) : null;
+
+    return { items: page.map((booking) => this.toMySummary(booking)), nextCursor };
+  }
+
   // Idempotent by design: cancelling an already-cancelled booking you own
   // succeeds silently rather than erroring, so a retried or double-tapped
   // cancel request never surfaces a spurious failure. Ownership is checked
@@ -392,6 +483,39 @@ export class BookingService {
       seriesId: booking.seriesId,
     };
   }
+
+  private toMySummary(booking: MyBookingRow): MyBookingSummary {
+    return {
+      id: booking.id,
+      roomId: booking.roomId,
+      roomName: booking.room.name,
+      title: booking.title,
+      startAt: booking.startAt.toISOString(),
+      endAt: booking.endAt.toISOString(),
+      status: booking.status,
+      seriesId: booking.seriesId,
+    };
+  }
+}
+
+// Opaque keyset-pagination cursor for GET /bookings/mine?scope=past:
+// `${startAt.toISOString()}|${id}` -- `|` never appears in either part, so
+// splitting on it is unambiguous. Not a security boundary (it only ever
+// re-derives a position in *this same user's own* already-authorized
+// query), so a plain delimited string is enough; no signing/encryption.
+function encodeMyBookingsCursor(booking: { startAt: Date; id: string }): string {
+  return `${booking.startAt.toISOString()}|${booking.id}`;
+}
+
+function decodeMyBookingsCursor(cursor: string): { startAt: Date; id: string } {
+  const separatorIndex = cursor.indexOf('|');
+  const startAtRaw = separatorIndex === -1 ? '' : cursor.slice(0, separatorIndex);
+  const id = separatorIndex === -1 ? '' : cursor.slice(separatorIndex + 1);
+  const startAt = new Date(startAtRaw);
+  if (!id || Number.isNaN(startAt.getTime())) {
+    throw new BadRequestException('Invalid cursor');
+  }
+  return { startAt, id };
 }
 
 // Each helper pairs a stable machine-readable `code` (see

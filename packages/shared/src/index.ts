@@ -5,3 +5,5 @@ export * from './time';
 export * from './rooms';
 export * from './booking';
 export * from './schedule';
+export * from './my-bookings';
+export * from './notifications';
