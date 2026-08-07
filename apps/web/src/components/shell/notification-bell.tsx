@@ -36,12 +36,11 @@ function BellIcon() {
 }
 
 /**
- * Desktop-header bell: unread badge, a popover listing recent
- * ending-soon notifications, and (via `useNotifications`) a toast the
- * moment a notification is first delivered. No mobile placement yet --
- * mobile users still get the toast (ToastProvider is mounted globally,
- * not header-scoped) but can't browse notification history until a
- * dedicated mobile entry point lands in the mobile/a11y phase.
+ * Header bell: unread badge, a popover listing recent ending-soon
+ * notifications, and (via `useNotifications`) a toast the moment a
+ * notification is first delivered. Rendered twice by AppHeader -- once in
+ * the desktop cluster, once in the always-visible mobile header area --
+ * rather than needing any mobile-specific variant of its own.
  */
 export function NotificationBell() {
   const [open, setOpen] = useState(false);
@@ -68,7 +67,7 @@ export function NotificationBell() {
           aria-haspopup="dialog"
           aria-expanded={open}
           aria-label={unreadCount > 0 ? `Notifications, ${unreadCount} unread` : 'Notifications'}
-          className="relative rounded-md p-2 text-ink-muted transition-colors hover:bg-canvas hover:text-ink"
+          className="relative rounded-md p-3 text-ink-muted transition-colors hover:bg-canvas hover:text-ink md:p-2"
         >
           <BellIcon />
           {unreadCount > 0 && (

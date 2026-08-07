@@ -58,22 +58,32 @@ export function AppHeader({ user, onLoggedOut }: AppHeaderProps) {
           <UserMenu user={user} onLoggedOut={onLoggedOut} />
         </div>
 
-        <button
-          ref={mobileNavTriggerRef}
-          type="button"
-          onClick={() => setMobileNavOpen(true)}
-          aria-label="Open menu"
-          className="rounded-md p-3 text-ink-muted hover:bg-canvas hover:text-ink md:hidden"
-        >
-          <svg viewBox="0 0 20 20" fill="none" aria-hidden="true" className="h-5 w-5">
-            <path
-              d="M3.5 6h13M3.5 10h13M3.5 14h13"
-              stroke="currentColor"
-              strokeWidth="1.6"
-              strokeLinecap="round"
-            />
-          </svg>
-        </button>
+        {/* Mobile-only: the desktop cluster above (NotificationBell +
+            UserMenu) is hidden below md:, so the bell needs its own
+            always-visible mobile placement rather than being buried a tap
+            deeper inside the hamburger drawer -- notifications are
+            time-sensitive enough to warrant the same at-a-glance badge
+            desktop users get. Reuses the exact same component/popover,
+            not a second mobile-specific implementation. */}
+        <div className="flex items-center gap-1 md:hidden">
+          <NotificationBell />
+          <button
+            ref={mobileNavTriggerRef}
+            type="button"
+            onClick={() => setMobileNavOpen(true)}
+            aria-label="Open menu"
+            className="rounded-md p-3 text-ink-muted hover:bg-canvas hover:text-ink"
+          >
+            <svg viewBox="0 0 20 20" fill="none" aria-hidden="true" className="h-5 w-5">
+              <path
+                d="M3.5 6h13M3.5 10h13M3.5 14h13"
+                stroke="currentColor"
+                strokeWidth="1.6"
+                strokeLinecap="round"
+              />
+            </svg>
+          </button>
+        </div>
       </div>
 
       <MobileNav
