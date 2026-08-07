@@ -18,7 +18,7 @@ export function bookingErrorMessage(error: ApiError): string {
     case BOOKING_ERROR_CODES.SERIES_CONFLICT:
       return `${error.messages.join(' ')} Adjust the start time or repeat count and try again.`;
     case BOOKING_ERROR_CODES.EMAIL_NOT_VERIFIED:
-      return 'Verify your email to book a room -- check the link we sent when you registered.';
+      return 'Verify your email to book a room. In development, use the verification link printed in the API console.';
     case BOOKING_ERROR_CODES.SLOT_MISALIGNED:
     case BOOKING_ERROR_CODES.DURATION_INVALID:
     case BOOKING_ERROR_CODES.OUTSIDE_OFFICE_HOURS:

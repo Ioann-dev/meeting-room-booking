@@ -47,14 +47,14 @@ describe('bookingErrorMessage', () => {
     );
   });
 
-  it('gives an actionable message for an unverified email without inventing a resend action', () => {
+  it('gives an actionable message for an unverified email without claiming a real email was sent', () => {
     const error = new ApiError(
       403,
       ['Please verify your email address to continue'],
       BOOKING_ERROR_CODES.EMAIL_NOT_VERIFIED,
     );
     expect(bookingErrorMessage(error)).toBe(
-      'Verify your email to book a room -- check the link we sent when you registered.',
+      'Verify your email to book a room. In development, use the verification link printed in the API console.',
     );
   });
 

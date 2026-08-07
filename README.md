@@ -85,8 +85,8 @@ flow:
 | Alice Johnson | alice@example.com | AlicePassword123 |
 | Bob Smith     | bob@example.com   | BobPassword123   |
 
-New accounts created via the registration page are not verified until the emailed link is
-followed, and an unverified user cannot create a booking. There is no real email sending in
+New accounts created via the registration page are not verified until their verification link
+is followed, and an unverified user cannot create a booking. There is no real email sending in
 development or in the Docker image: the verification link is logged to the API's console
 output instead (`docker compose logs api` for the Docker launch).
 

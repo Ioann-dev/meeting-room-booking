@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { FormEvent, useEffect, useState } from 'react';
+import { isValidEmailFormat } from 'shared';
 import { Alert } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { FormField } from '@/components/ui/form-field';
@@ -21,6 +22,8 @@ function validate(email: string, password: string): FieldErrors {
   const errors: FieldErrors = {};
   if (email.trim().length === 0) {
     errors.email = 'Email is required';
+  } else if (!isValidEmailFormat(email)) {
+    errors.email = 'Enter a valid email address';
   }
   if (password.length === 0) {
     errors.password = 'Password is required';

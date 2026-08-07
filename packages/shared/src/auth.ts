@@ -15,6 +15,20 @@ export function canonicalizeEmail(email: string): string {
   return email.trim().toLowerCase();
 }
 
+// A deliberately lightweight "looks like an email" syntax check -- one
+// @ with non-whitespace on both sides and at least one dot in the domain
+// part -- shared by the login/register forms so a client can show a field-
+// level error before submitting, instead of a malformed address only
+// surfacing as a top-level alert after a round trip. This is a UX hint,
+// not the authority: the server's own class-validator `@IsEmail()` DTO
+// validation (apps/api/src/auth/dto/*.dto.ts) remains the real boundary,
+// so this never needs to match its full RFC-5322-ish behavior exactly.
+const EMAIL_FORMAT_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+export function isValidEmailFormat(email: string): boolean {
+  return EMAIL_FORMAT_PATTERN.test(email.trim());
+}
+
 export interface CurrentUser {
   id: string;
   name: string;
