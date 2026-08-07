@@ -7,6 +7,10 @@ coverage
 package-lock.json
 next-env.d.ts
 
+# generated Playwright globalSetup artifact (git-ignored session storage
+# state, not source)
+apps/web/e2e/.auth
+
 # specification/instruction source documents — participant-facing wording
 # must not be silently reformatted
 docs

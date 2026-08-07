@@ -26,6 +26,11 @@ jobs:
 
       - run: npm run format:check
       - run: npm run lint
+      # lint is expected to be read-only (see apps/api's lint vs. lint:fix
+      # split) -- this fails the build if it silently mutated any tracked
+      # file instead of just reporting, which would otherwise let CI pass
+      # against a fixed-up checkout that doesn't match what was committed.
+      - run: git diff --exit-code
       - run: npm run typecheck
       - run: npm test
       - run: npm run build

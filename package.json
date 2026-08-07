@@ -15,6 +15,7 @@
     "dev": "npm run build -w packages/shared && concurrently -n shared,api,web -c yellow,green,cyan \"npm run dev -w packages/shared\" \"npm run start:dev -w apps/api\" \"npm run dev -w apps/web\"",
     "build": "npm run build -w packages/shared && npm run build -w apps/api && npm run build -w apps/web",
     "lint": "npm run build -w packages/shared && npm run lint --workspaces --if-present",
+    "lint:fix": "npm run build -w packages/shared && npm run lint:fix --workspaces --if-present",
     "typecheck": "npm run build -w packages/shared && npm run typecheck --workspaces --if-present",
     "test": "npm run build -w packages/shared && npm run test --workspaces --if-present",
     "test:integration": "npm run build -w packages/shared && npm run test:e2e -w apps/api && npm run test:db -w apps/api",
