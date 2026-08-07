@@ -1,10 +1,12 @@
 import { expect, test } from '@playwright/test';
 import { expectNoSeriousA11yViolations } from './a11y';
-import { loginAsSeededUser } from './helpers';
+import { ALICE_STORAGE_STATE_PATH } from './helpers';
+
+test.use({ storageState: ALICE_STORAGE_STATE_PATH });
 
 test.describe('My Bookings accessibility', () => {
   test('Upcoming and Past tabs have no serious a11y violations', async ({ page }) => {
-    await loginAsSeededUser(page);
+    await page.goto('/schedule');
     // On mobile viewports the primary nav is hidden (md:hidden / hidden
     // md:flex, see AppHeader) and "My Bookings" is only reachable through
     // the hamburger sheet; on desktop the header link is already visible.

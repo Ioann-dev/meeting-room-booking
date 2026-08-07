@@ -1,5 +1,7 @@
 import { expect, test } from '@playwright/test';
-import { loginAsSeededUser } from './helpers';
+import { ALICE_STORAGE_STATE_PATH } from './helpers';
+
+test.use({ storageState: ALICE_STORAGE_STATE_PATH });
 
 // Florence carries no seed bookings (see apps/api/prisma/seed.ts), and "next
 // week" from whenever this runs is always entirely in the future -- together
@@ -17,14 +19,14 @@ const PROJECT_START_LABEL: Record<string, string> = {
 };
 
 test.describe('Booking flow smoke', () => {
-  test('login, create, deep-link from My Bookings, then cancel', async ({ page }, testInfo) => {
+  test('create, deep-link from My Bookings, then cancel', async ({ page }, testInfo) => {
     const startLabel = PROJECT_START_LABEL[testInfo.project.name];
     if (!startLabel) {
       throw new Error(`No configured slot for Playwright project "${testInfo.project.name}"`);
     }
     const title = `QA Smoke ${testInfo.project.name} ${Date.now()}`;
 
-    await loginAsSeededUser(page);
+    await page.goto('/schedule');
     await page.getByRole('link', { name: /Florence/ }).click();
     await expect(page.getByRole('heading', { name: 'Florence' })).toBeVisible();
     await page.getByRole('button', { name: 'Next week' }).click();

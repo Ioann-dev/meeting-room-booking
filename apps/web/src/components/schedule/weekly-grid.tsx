@@ -331,7 +331,16 @@ export function WeeklyGrid({
               </tbody>
             </table>
           </div>
-          <div ref={dayScrollRef} className="min-w-0 flex-1 overflow-x-auto overflow-y-hidden">
+          {/* relative: without it, a day <th>'s offsetLeft (read by
+            scrollToDay and the scroll-to-today effect above) resolves
+            against the nearest positioned ancestor -- which, absent this,
+            is <body> -- rather than against this wrapper's own scrolled
+            content origin, silently biasing every computed scroll target
+            by this wrapper's own offset from the page edge. */}
+          <div
+            ref={dayScrollRef}
+            className="relative min-w-0 flex-1 overflow-x-auto overflow-y-hidden"
+          >
             <table className="w-full min-w-[42rem] table-fixed border-collapse text-sm">
               <caption className="sr-only">
                 Weekly schedule for {roomName}, week starting {days[0].month}/{days[0].day}/

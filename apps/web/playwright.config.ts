@@ -11,6 +11,13 @@ export default defineConfig({
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 1 : 0,
   reporter: 'list',
+  // Logs in once as the seeded user and saves the session cookie for
+  // authenticated specs to reuse (see global-setup.ts) -- not just for
+  // speed: it also means the login/register rate limit (keyed by
+  // account, see AuthThrottlerGuard) never sees more than the one real
+  // login this performs, regardless of how many authenticated specs or
+  // parallel projects run.
+  globalSetup: './e2e/global-setup.ts',
   use: {
     baseURL: 'http://localhost:3000',
     trace: 'retain-on-failure',
