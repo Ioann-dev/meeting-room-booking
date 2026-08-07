@@ -1,9 +1,16 @@
 'use client';
 
 import { OFFICE_TIMEZONE } from 'shared';
-import { Alert } from '@/components/ui/alert';
 import { useUserTimeZone } from '@/hooks/use-user-time-zone';
 
+/**
+ * A compact metadata line, not a full alert box: both zones stay explicit
+ * (office/Kyiv vs. the viewer's own), but the previous full-width Alert
+ * read as more visually dominant than a passive, always-true piece of
+ * context warrants. role="status" preserves the same passive-announcement
+ * behavior Alert variant="info" had (Alert maps "info" to role="status"
+ * too), so this is not an accessibility regression.
+ */
 export function OfficeZoneNotice() {
   const userTimeZone = useUserTimeZone();
 
@@ -12,9 +19,12 @@ export function OfficeZoneNotice() {
   }
 
   return (
-    <Alert variant="info">
-      Office hours are in <strong>{OFFICE_TIMEZONE}</strong> time. Times shown to you are converted
-      to your local zone, <strong>{userTimeZone}</strong>.
-    </Alert>
+    <p role="status" className="text-xs text-ink-subtle">
+      Office: <strong className="font-medium text-ink">{OFFICE_TIMEZONE}</strong>
+      <span aria-hidden="true" className="mx-1.5 text-ink-faint">
+        ·
+      </span>
+      Your time: <strong className="font-medium text-ink">{userTimeZone}</strong>
+    </p>
   );
 }

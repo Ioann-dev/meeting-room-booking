@@ -84,11 +84,109 @@ describe('BookingBlock deterministic row geometry', () => {
     expect(cell.className).toContain('overflow-hidden');
   });
 
-  it('keeps the full title, author, and time in the accessible name even though it may be visually clipped', () => {
+  it('draws its keyboard focus ring inset rather than at the default positive offset (H2)', () => {
+    // The default global :focus-visible ring (globals.css) uses a positive
+    // outline-offset, which draws outside the element's own box -- for a
+    // button this tightly sized inside an equally overflow-hidden <td>
+    // (the previous test), that positive-offset ring gets silently clipped
+    // to nothing. A negative offset keeps the ring within the button's own
+    // painted area, where overflow-hidden can never reach it.
+    renderInTable(1);
+    expect(screen.getByRole('button').className).toContain('focus-visible:outline-offset-[-2px]');
+  });
+
+  it('keeps the full title, author, and time in the accessible name even when the time is not visually shown', () => {
+    renderInTable(1);
+    // An accessible name from an explicit aria-label, not visible subtree
+    // text -- this is what getByRole's accessible-name matching resolves
+    // against, and it must hold regardless of what's visually rendered at
+    // any given rowSpan.
+    const button = screen.getByRole('button', {
+      name: `${BOOKING.title}, ${BOOKING.authorName}, 09:00–09:30`,
+    });
+    expect(button).toBeInTheDocument();
+  });
+
+  it('names an own booking "your booking" in the accessible name rather than repeating the author', () => {
+    render(
+      <table>
+        <tbody>
+          <tr>
+            <BookingBlock
+              booking={{ ...BOOKING, isOwnBooking: true }}
+              rowSpan={1}
+              startLabel="09:00"
+              endLabel="09:30"
+              onSelect={() => {}}
+            />
+          </tr>
+        </tbody>
+      </table>,
+    );
+    expect(
+      screen.getByRole('button', { name: `${BOOKING.title}, your booking, 09:00–09:30` }),
+    ).toBeInTheDocument();
+  });
+});
+
+describe('BookingBlock duration-aware content density (H1)', () => {
+  it('shows title and author on a 30-minute block, both with real visible height, and no time line', () => {
     renderInTable(1);
     const button = screen.getByRole('button');
-    expect(button.textContent).toContain(BOOKING.title);
-    expect(button.textContent).toContain(BOOKING.authorName);
-    expect(button.textContent).toContain('09:00');
+
+    // aria-hidden visible-text spans, queried directly rather than via
+    // role: this is asserting what a sighted user sees, which the
+    // accessible-name test above deliberately does not cover.
+    const lines = Array.from(button.querySelectorAll('span[aria-hidden="true"]')).filter(
+      (el) => el.textContent,
+    );
+    const texts = lines.map((el) => el.textContent);
+    expect(texts).toContain(BOOKING.title);
+    expect(texts).toContain(BOOKING.authorName);
+    expect(texts.some((t) => t?.includes('09:00'))).toBe(false);
+  });
+
+  it('shows "You" instead of the author name on a 30-minute own booking', () => {
+    render(
+      <table>
+        <tbody>
+          <tr>
+            <BookingBlock
+              booking={{ ...BOOKING, isOwnBooking: true }}
+              rowSpan={1}
+              startLabel="09:00"
+              endLabel="09:30"
+              onSelect={() => {}}
+            />
+          </tr>
+        </tbody>
+      </table>,
+    );
+    const button = screen.getByRole('button');
+    const texts = Array.from(button.querySelectorAll('span[aria-hidden="true"]'))
+      .filter((el) => el.textContent)
+      .map((el) => el.textContent);
+    expect(texts).toContain('You');
+    expect(texts).not.toContain(BOOKING.authorName);
+  });
+
+  it('shows title, author, and time on a 60-minute (rowSpan 2) block', () => {
+    renderInTable(2);
+    const button = screen.getByRole('button');
+    const texts = Array.from(button.querySelectorAll('span[aria-hidden="true"]'))
+      .filter((el) => el.textContent)
+      .map((el) => el.textContent);
+    expect(texts).toContain(BOOKING.title);
+    expect(texts).toContain(BOOKING.authorName);
+    expect(texts.some((t) => t?.includes('09:00') && t.includes('09:30'))).toBe(true);
+  });
+
+  it('omits the visible gap between lines only for a 30-minute block, not for longer ones', () => {
+    const single = renderInTable(1);
+    expect(screen.getByRole('button').className).toContain('gap-0');
+    single.unmount();
+
+    renderInTable(2);
+    expect(screen.getByRole('button').className).toContain('gap-0.5');
   });
 });

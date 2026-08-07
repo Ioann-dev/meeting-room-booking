@@ -23,9 +23,8 @@ import { Select } from '@/components/ui/select';
 import { ApiError } from '@/lib/api-error';
 import { bookingErrorMessage } from '@/lib/booking-error-copy';
 import { createBooking } from '@/lib/booking-client';
+import { formatSelectDateLabel, WEEKDAY_LABELS_LONG } from '@/lib/format-date';
 import { buildEndOptions, buildStartOptions } from './booking-create-dialog.helpers';
-
-const WEEKDAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'] as const;
 
 interface FieldErrors {
   title?: string;
@@ -246,7 +245,12 @@ function BookingCreateForm({
         >
           {days.map((day, index) => (
             <option key={index} value={index}>
-              {WEEKDAY_LABELS[day.weekday - 1]} {day.month}/{day.day}
+              {formatSelectDateLabel(
+                WEEKDAY_LABELS_LONG[day.weekday - 1]!,
+                day.month,
+                day.day,
+                day.year,
+              )}
             </option>
           ))}
         </Select>
@@ -270,7 +274,14 @@ function BookingCreateForm({
           </Select>
         </FormField>
 
-        <FormField label="End">
+        <FormField
+          label="End"
+          // A non-breaking space, not undefined: reserves the same hint-line
+          // height Start's "No bookable times remain on this day" occupies,
+          // so the two columns land at equal height instead of End looking
+          // shorter whenever Start's hint is showing.
+          hint={noAvailableStarts ? ' ' : undefined}
+        >
           <Select
             value={endInstant ?? ''}
             disabled={endOptions.length === 0}
@@ -333,7 +344,7 @@ function BookingCreateForm({
         </FormField>
       )}
 
-      <div className="mt-2 flex justify-end gap-2">
+      <div className="flex justify-end gap-2">
         <Button type="button" variant="secondary" onClick={onCancel}>
           Cancel
         </Button>

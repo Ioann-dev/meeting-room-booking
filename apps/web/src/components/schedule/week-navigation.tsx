@@ -2,6 +2,7 @@
 
 import { getOfficeWeekDays } from 'shared';
 import { Button } from '@/components/ui/button';
+import { formatWeekRangeLabel } from '@/lib/format-date';
 
 interface WeekNavigationProps {
   weekStartUtc: string;
@@ -9,22 +10,9 @@ interface WeekNavigationProps {
   onNavigate: (direction: 'previous' | 'next' | 'current') => void;
 }
 
-// Used only to format a known office-local calendar date for display -- never
-// to derive or store it, so this has no bearing on the UTC/office-zone
-// semantics the actual date arithmetic already handles.
-function formatDayLabel(year: number, month: number, day: number): string {
-  return new Date(Date.UTC(year, month - 1, day)).toLocaleDateString('en-US', {
-    month: 'short',
-    day: 'numeric',
-  });
-}
-
 export function WeekNavigation({ weekStartUtc, isCurrentWeek, onNavigate }: WeekNavigationProps) {
   const [first, , , , , , last] = getOfficeWeekDays(weekStartUtc);
-  const rangeLabel =
-    first.month === last.month
-      ? `${formatDayLabel(first.year, first.month, first.day)} – ${last.day}, ${last.year}`
-      : `${formatDayLabel(first.year, first.month, first.day)} – ${formatDayLabel(last.year, last.month, last.day)}, ${last.year}`;
+  const rangeLabel = formatWeekRangeLabel(first, last);
 
   return (
     <div className="flex flex-wrap items-center justify-between gap-3">
@@ -32,10 +20,14 @@ export function WeekNavigation({ weekStartUtc, isCurrentWeek, onNavigate }: Week
         <p className="text-sm font-semibold text-ink">{rangeLabel}</p>
         <p className="text-xs text-ink-subtle">Office hours, Europe/Kyiv</p>
       </div>
-      <div className="flex items-center gap-1.5">
+      {/* A single bordered "track" with ghost-variant segments reads as one
+          connected navigation control rather than three floating chips --
+          ghost carries no border/rounded of its own, so nesting it inside
+          this frame is purely additive, never a same-property class fight. */}
+      <div className="inline-flex items-center gap-1 rounded-md border border-border bg-canvas p-1">
         <Button
           type="button"
-          variant="secondary"
+          variant="ghost"
           onClick={() => onNavigate('previous')}
           aria-label="Previous week"
           className="px-2.5"
@@ -52,15 +44,19 @@ export function WeekNavigation({ weekStartUtc, isCurrentWeek, onNavigate }: Week
         </Button>
         <Button
           type="button"
-          variant="secondary"
+          variant="ghost"
           onClick={() => onNavigate('current')}
           disabled={isCurrentWeek}
+          // Disabled "This week" means "you are here", not "unavailable" --
+          // the default disabled:opacity-60 reads as broken/greyed-out, so
+          // this overrides it to look like a selected/current state instead.
+          className="px-3 disabled:cursor-default disabled:bg-surface disabled:text-ink disabled:opacity-100 disabled:shadow-sm"
         >
           This week
         </Button>
         <Button
           type="button"
-          variant="secondary"
+          variant="ghost"
           onClick={() => onNavigate('next')}
           aria-label="Next week"
           className="px-2.5"

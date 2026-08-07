@@ -86,7 +86,11 @@ export function AppShell({ children }: { children: ReactNode }) {
           className="mx-auto w-full max-w-6xl flex-1 px-4 py-8 sm:px-6 lg:px-8"
         >
           <OfficeZoneNotice />
-          <div className="mt-6 first:mt-0">{children}</div>
+          {/* mt-3, not mt-6: OfficeZoneNotice is now a single compact text
+              line rather than a bordered Alert box, so the trailing space
+              before page content only needs to be proportionate to that
+              smaller footprint. */}
+          <div className="mt-3 first:mt-0">{children}</div>
         </main>
       </div>
     </UserTimeZoneProvider>

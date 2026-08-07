@@ -15,11 +15,10 @@ import {
 } from 'shared';
 import { cn } from '@/lib/cn';
 import { formatClock } from '@/lib/format-clock';
+import { formatDayMonth, WEEKDAY_LABELS_SHORT as WEEKDAY_LABELS } from '@/lib/format-date';
 import { BookingBlock } from './booking-block';
 import { buildDayColumn, type DayBooking } from './day-column';
 import { SlotCell } from './slot-cell';
-
-const WEEKDAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'] as const;
 
 interface WeeklyGridProps {
   roomName: string;
@@ -360,8 +359,8 @@ export function WeeklyGrid({
           >
             <table className="w-full min-w-[42rem] table-fixed border-collapse text-sm">
               <caption className="sr-only">
-                Weekly schedule for {roomName}, week starting {days[0].month}/{days[0].day}/
-                {days[0].year}
+                Weekly schedule for {roomName}, week starting{' '}
+                {formatDayMonth(days[0].month, days[0].day)} {days[0].year}
               </caption>
               <thead>
                 <tr>
@@ -386,8 +385,8 @@ export function WeeklyGrid({
                       <span className="block text-[11px] font-medium uppercase tracking-wide text-ink-subtle leading-none">
                         {WEEKDAY_LABELS[day.weekday - 1]}
                       </span>
-                      <span className="tabular-nums mt-0.5 block text-sm font-semibold leading-none text-ink">
-                        {day.month}/{day.day}
+                      <span className="tabular-nums mt-0.5 block text-sm font-semibold uppercase leading-none text-ink">
+                        {formatDayMonth(day.month, day.day)}
                       </span>
                       {/* Always rendered (not just when this is today) and
                         deterministically leading-none/mt-0.5, so this row's
@@ -464,7 +463,7 @@ export function WeeklyGrid({
                           isPast={isPast}
                           isSelected={isSelected}
                           onSelect={isPast ? undefined : () => onSelectSlot(slotInstant)}
-                          label={`${formatClock(slot.hour, slot.minute)} on ${WEEKDAY_LABELS[day.weekday - 1]} ${day.month}/${day.day}`}
+                          label={`${formatClock(slot.hour, slot.minute)} on ${WEEKDAY_LABELS[day.weekday - 1]} ${formatDayMonth(day.month, day.day)}`}
                           currentTimeFraction={fraction}
                         />
                       );
