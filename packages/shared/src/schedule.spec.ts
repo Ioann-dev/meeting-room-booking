@@ -5,6 +5,7 @@ import {
   getBookingPosition,
   getCurrentTimePosition,
   getOfficeSlots,
+  getInstantRangeDayOffset,
   getOfficeWeekDays,
   getTodayDayIndex,
   getZonedDateOffsetDays,
@@ -225,5 +226,41 @@ describe('getZonedDateOffsetDays', () => {
     expect(
       getZonedDateOffsetDays('2026-03-29T15:30:00.000Z', 'Pacific/Kiritimati', OFFICE_TIMEZONE),
     ).toBe(1);
+  });
+});
+
+describe('getInstantRangeDayOffset', () => {
+  it('is 0 for a range that starts and ends on the same zoned calendar date', () => {
+    expect(
+      getInstantRangeDayOffset(
+        '2026-08-06T14:00:00.000Z',
+        '2026-08-06T14:30:00.000Z',
+        'Europe/Kyiv',
+      ),
+    ).toBe(0);
+  });
+
+  it('is positive when the zoned end date rolls onto the next calendar day (F3)', () => {
+    // Kyiv 11:00-15:00 (a normal 4-hour office-hours booking, entirely
+    // within one Kyiv calendar day) reads as 20:00 Thu - 00:00 Fri in
+    // Pacific/Auckland -- the range itself never crosses midnight in Kyiv,
+    // only its Auckland-local representation does.
+    expect(
+      getInstantRangeDayOffset(
+        '2026-08-06T08:00:00.000Z',
+        '2026-08-06T12:00:00.000Z',
+        'Pacific/Auckland',
+      ),
+    ).toBe(1);
+  });
+
+  it('stays 0 for a short range close to midnight that does not actually cross it', () => {
+    expect(
+      getInstantRangeDayOffset(
+        '2026-08-06T08:00:00.000Z',
+        '2026-08-06T08:30:00.000Z',
+        'Pacific/Auckland',
+      ),
+    ).toBe(0);
   });
 });

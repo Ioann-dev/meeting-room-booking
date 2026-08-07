@@ -153,6 +153,63 @@ describe('WeeklyGrid temporal row geometry (M1)', () => {
   });
 });
 
+describe('WeeklyGrid viewer-zone DST correctness (F2)', () => {
+  // Week of Monday 2026-03-02 through Sunday 2026-03-08: US clocks spring
+  // forward at 2026-03-08 07:00 UTC (2 a.m. America/New_York), which falls
+  // exactly at the start of that Sunday's Kyiv-anchored office hours
+  // (09:00 Kyiv = 07:00 UTC), while Europe/Kyiv's own DST change is still
+  // three weeks away (last Sunday of March). So every Kyiv 09:00-19:00
+  // office-hour boundary converts to America/New_York at EST (UTC-5) on
+  // Monday-Saturday but at EDT (UTC-4) on Sunday -- the same Kyiv wall-clock
+  // row genuinely means a different New York wall-clock time depending on
+  // which day column it is in.
+  const { startUtc: dstWeekStartUtc, endUtc: dstWeekEndUtc } = getOfficeWeekBoundaries(
+    '2026-03-04T10:00:00.000Z',
+    OFFICE_TIMEZONE,
+  );
+
+  function renderDstWeekGrid(userTimeZone: string) {
+    return render(
+      <WeeklyGrid
+        roomName="Copenhagen"
+        schedule={{
+          roomId: 'room-1',
+          weekStartUtc: dstWeekStartUtc,
+          weekEndUtc: dstWeekEndUtc,
+          bookings: [],
+        }}
+        userTimeZone={userTimeZone}
+        selectedSlotStart={null}
+        onSelectSlot={() => {}}
+        onSelectBooking={() => {}}
+        now={null}
+      />,
+    );
+  }
+
+  it('suppresses the shared secondary rail label for every row when the viewer zone shifts DST mid-week and Kyiv does not', () => {
+    renderDstWeekGrid('America/New_York');
+    const railRows = screen.getAllByRole('rowheader');
+    expect(railRows.length).toBeGreaterThan(0);
+    for (const row of railRows) {
+      // Exactly the primary Kyiv label -- never a second, potentially-wrong
+      // "one value fits all seven columns" viewer-local label.
+      expect(row.querySelectorAll('span')).toHaveLength(1);
+    }
+  });
+
+  it('still shows the shared secondary rail label for a normal week with no mid-week viewer DST shift', () => {
+    // Same DST-transition week, but Europe/Berlin's own DST change (last
+    // Sunday of March) hasn't happened yet either -- Kyiv and Berlin stay
+    // at a constant relative offset all week, so the shared label is valid.
+    renderDstWeekGrid('Europe/Berlin');
+    const railRows = screen.getAllByRole('rowheader');
+    for (const row of railRows) {
+      expect(row.querySelectorAll('span')).toHaveLength(2);
+    }
+  });
+});
+
 describe('WeeklyGrid mobile day chips', () => {
   function getChipGroup(): HTMLElement {
     return screen.getByRole('group', { name: 'Select day' });

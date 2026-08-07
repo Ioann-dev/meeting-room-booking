@@ -173,22 +173,36 @@ export function WeeklyGrid({
   // display their own time in the viewer's zone -- so without a second
   // label here, a block reading "08:00" sitting in the row labeled "09:00"
   // would look like a mismatch instead of the same instant in two zones.
-  // Derived from the week's Monday: correct for every realistic viewer zone,
-  // and at worst (a same-week DST shift, or an offset large enough to cross
-  // a calendar day) only this secondary label could drift by the shift
-  // amount -- the row's Kyiv identity and every booking's own displayed
-  // time are unaffected either way.
-  const showRailBrowserLabel = displayZone !== OFFICE_TIMEZONE;
+  //
+  // A single shared rail column can only ever show *one* viewer-local value
+  // per row, but the same Kyiv wall-clock slot can map to different viewer
+  // offsets on different days of the displayed week -- most commonly the
+  // viewer's own zone changing DST mid-week while Kyiv does not (or vice
+  // versa). Showing one day's conversion as if it applied to every column
+  // would misrepresent the other days, so each row's secondary label is
+  // only shown when every day in the displayed week resolves to the same
+  // viewer-local wall time for that Kyiv slot; otherwise the row falls back
+  // to Kyiv-only, and each booking block's own per-instant label (always
+  // computed from its own real start/end, never this rail) remains the
+  // correct source of truth for that day.
   function railBrowserLabel(hour: number, minute: number): string | null {
-    if (!showRailBrowserLabel) {
+    if (displayZone === OFFICE_TIMEZONE) {
       return null;
     }
-    const instant = zonedWallTimeToUtc(
-      { year: days[0].year, month: days[0].month, day: days[0].day, hour, minute },
-      OFFICE_TIMEZONE,
+    const converted = days.map((day) =>
+      toZonedParts(
+        zonedWallTimeToUtc(
+          { year: day.year, month: day.month, day: day.day, hour, minute },
+          OFFICE_TIMEZONE,
+        ),
+        displayZone,
+      ),
     );
-    const parts = toZonedParts(instant, displayZone);
-    return formatClock(parts.hour, parts.minute);
+    const [first, ...rest] = converted;
+    const uniform = rest.every(
+      (parts) => parts.hour === first!.hour && parts.minute === first!.minute,
+    );
+    return uniform ? formatClock(first!.hour, first!.minute) : null;
   }
 
   return (
@@ -298,36 +312,39 @@ export function WeeklyGrid({
                 </tr>
               </thead>
               <tbody>
-                {officeSlots.map((slot) => (
-                  <tr key={slot.rowIndex}>
-                    <th
-                      scope="row"
-                      className="sticky top-0 z-10 border-b border-r border-border bg-surface p-0 text-right text-xs font-normal text-ink-subtle"
-                    >
-                      {/* min-h/max-h live on this inner div, not the <th> itself:
-                      table cells don't reliably honor min-height/max-height
-                      as a row-sizing floor when there's no sibling cell (a
-                      normal, non-table-cell element like this one) also
-                      demanding that height -- alone in this single-column
-                      table, a height constraint on the <th> directly was
-                      silently ignored by the row-sizing algorithm. A plain
-                      block child's min-height is honored reliably, and that
-                      then drives the <th>'s (and so the row's) natural
-                      height the same way SlotCell/BookingBlock's own inner
-                      button already does. */}
-                      <div className="flex min-h-11 max-h-11 flex-col justify-center px-2 py-0.5 md:min-h-8 md:max-h-8">
-                        <span className="tabular-nums block leading-none">
-                          {formatClock(slot.hour, slot.minute)}
-                        </span>
-                        {showRailBrowserLabel && (
-                          <span className="tabular-nums block text-[10px] leading-none text-ink-faint">
-                            {railBrowserLabel(slot.hour, slot.minute)}
+                {officeSlots.map((slot) => {
+                  const browserLabel = railBrowserLabel(slot.hour, slot.minute);
+                  return (
+                    <tr key={slot.rowIndex}>
+                      <th
+                        scope="row"
+                        className="sticky top-0 z-10 border-b border-r border-border bg-surface p-0 text-right text-xs font-normal text-ink-subtle"
+                      >
+                        {/* min-h/max-h live on this inner div, not the <th> itself:
+                        table cells don't reliably honor min-height/max-height
+                        as a row-sizing floor when there's no sibling cell (a
+                        normal, non-table-cell element like this one) also
+                        demanding that height -- alone in this single-column
+                        table, a height constraint on the <th> directly was
+                        silently ignored by the row-sizing algorithm. A plain
+                        block child's min-height is honored reliably, and that
+                        then drives the <th>'s (and so the row's) natural
+                        height the same way SlotCell/BookingBlock's own inner
+                        button already does. */}
+                        <div className="flex min-h-11 max-h-11 flex-col justify-center px-2 py-0.5 md:min-h-8 md:max-h-8">
+                          <span className="tabular-nums block leading-none">
+                            {formatClock(slot.hour, slot.minute)}
                           </span>
-                        )}
-                      </div>
-                    </th>
-                  </tr>
-                ))}
+                          {browserLabel !== null && (
+                            <span className="tabular-nums block text-[10px] leading-none text-ink-faint">
+                              {browserLabel}
+                            </span>
+                          )}
+                        </div>
+                      </th>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>

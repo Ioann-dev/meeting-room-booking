@@ -10,18 +10,26 @@ test.use({ storageState: ALICE_STORAGE_STATE_PATH });
 // gets its own time-of-day so the three Playwright projects (which run this
 // spec in parallel against the same dev database) never race for the same
 // slot.
+// Selected by index into the Start dropdown, not by option label: the
+// label's primary time is the resolved viewer zone (see
+// booking-create-dialog.helpers.ts), which depends on whatever timezone the
+// test browser itself resolves to (the host machine's default, absent an
+// explicit Playwright `timezoneId`) -- the option *order* is always the
+// same fixed sequence of Kyiv office-hour boundaries regardless of display
+// zone, so indexing into it is the only viewer-zone-independent way to pick
+// a specific, deterministic slot here.
 // Selecting Start leaves the form's own default End (Start + 30 minutes)
-// in place, so only the start time needs to be spelled out here.
-const PROJECT_START_LABEL: Record<string, string> = {
-  'Desktop Chrome': '09:00',
-  'Mobile 390x844': '10:30',
-  'Mobile 430': '12:00',
+// in place, so only the start index needs to be spelled out here.
+const PROJECT_START_INDEX: Record<string, number> = {
+  'Desktop Chrome': 0, // 09:00 Kyiv
+  'Mobile 390x844': 3, // 10:30 Kyiv
+  'Mobile 430': 6, // 12:00 Kyiv
 };
 
 test.describe('Booking flow smoke', () => {
   test('create, deep-link from My Bookings, then cancel', async ({ page }, testInfo) => {
-    const startLabel = PROJECT_START_LABEL[testInfo.project.name];
-    if (!startLabel) {
+    const startIndex = PROJECT_START_INDEX[testInfo.project.name];
+    if (startIndex === undefined) {
       throw new Error(`No configured slot for Playwright project "${testInfo.project.name}"`);
     }
     const title = `QA Smoke ${testInfo.project.name} ${Date.now()}`;
@@ -32,7 +40,7 @@ test.describe('Booking flow smoke', () => {
     await page.getByRole('button', { name: 'Next week' }).click();
 
     await page.getByRole('button', { name: 'Book a room' }).click();
-    await page.getByLabel('Start').selectOption({ label: startLabel });
+    await page.getByLabel('Start').selectOption({ index: startIndex });
     await page.getByLabel('Title').fill(title);
     await page.getByRole('button', { name: 'Book room' }).click();
 

@@ -326,6 +326,7 @@ export function RoomScheduleView() {
         weekStartUtc={schedule.weekStartUtc}
         initialSlotStart={selectedSlotStart}
         now={now}
+        displayZone={displayZone}
         emailVerified={user?.emailVerified ?? false}
         onOpenChange={setCreateDialogOpen}
         onCloseAutoFocus={(event) => {

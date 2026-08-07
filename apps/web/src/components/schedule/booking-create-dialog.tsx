@@ -49,6 +49,7 @@ function resolveInitialSelection(
   days: OfficeWeek,
   initialSlotStart: string | null,
   now: string | null,
+  displayZone: string,
 ): Selection {
   let dayIndex = 0;
   const target = initialSlotStart ?? now;
@@ -62,12 +63,14 @@ function resolveInitialSelection(
     }
   }
 
-  const startOptions = buildStartOptions(days[dayIndex]!, now);
+  const startOptions = buildStartOptions(days[dayIndex]!, now, displayZone);
   const startInstant =
     initialSlotStart && startOptions.some((o) => o.instant === initialSlotStart)
       ? initialSlotStart
       : (startOptions[0]?.instant ?? null);
-  const endOptions = startInstant ? buildEndOptions(days[dayIndex]!, startInstant) : [];
+  const endOptions = startInstant
+    ? buildEndOptions(days[dayIndex]!, startInstant, displayZone)
+    : [];
 
   return { dayIndex, startInstant, endInstant: endOptions[0]?.instant ?? null };
 }
@@ -98,6 +101,8 @@ interface BookingCreateFormProps {
   days: OfficeWeek;
   initialSlotStart: string | null;
   now: string | null;
+  /** Resolved viewer/browser zone; falls back to the office zone until the browser zone resolves. */
+  displayZone: string;
   emailVerified: boolean;
   onCancel: () => void;
   onCreated: (result: BookingSummary | BookingSeriesSummary) => void;
@@ -108,12 +113,13 @@ function BookingCreateForm({
   days,
   initialSlotStart,
   now,
+  displayZone,
   emailVerified,
   onCancel,
   onCreated,
 }: BookingCreateFormProps) {
   const [selection, setSelection] = useState<Selection>(() =>
-    resolveInitialSelection(days, initialSlotStart, now),
+    resolveInitialSelection(days, initialSlotStart, now, displayZone),
   );
   const [title, setTitle] = useState('');
   const [recurrenceEnabled, setRecurrenceEnabled] = useState(false);
@@ -123,13 +129,17 @@ function BookingCreateForm({
   const [pending, setPending] = useState(false);
 
   const { dayIndex, startInstant, endInstant } = selection;
-  const startOptions = buildStartOptions(days[dayIndex]!, now);
-  const endOptions = startInstant ? buildEndOptions(days[dayIndex]!, startInstant) : [];
+  const startOptions = buildStartOptions(days[dayIndex]!, now, displayZone);
+  const endOptions = startInstant
+    ? buildEndOptions(days[dayIndex]!, startInstant, displayZone)
+    : [];
 
   function handleDayChange(nextIndex: number) {
-    const nextStartOptions = buildStartOptions(days[nextIndex]!, now);
+    const nextStartOptions = buildStartOptions(days[nextIndex]!, now, displayZone);
     const nextStart = nextStartOptions[0]?.instant ?? null;
-    const nextEndOptions = nextStart ? buildEndOptions(days[nextIndex]!, nextStart) : [];
+    const nextEndOptions = nextStart
+      ? buildEndOptions(days[nextIndex]!, nextStart, displayZone)
+      : [];
     setSelection({
       dayIndex: nextIndex,
       startInstant: nextStart,
@@ -138,7 +148,7 @@ function BookingCreateForm({
   }
 
   function handleStartChange(nextStart: string) {
-    const nextEndOptions = buildEndOptions(days[dayIndex]!, nextStart);
+    const nextEndOptions = buildEndOptions(days[dayIndex]!, nextStart, displayZone);
     setSelection((current) => ({
       ...current,
       startInstant: nextStart,
@@ -223,7 +233,8 @@ function BookingCreateForm({
     <form className="flex flex-col gap-4" onSubmit={(event) => void handleSubmit(event)} noValidate>
       {!emailVerified && (
         <Alert variant="warning">
-          Verify your email to book a room -- check the link we sent when you registered.
+          Verify your email to book a room. In development, use the verification link printed in the
+          API console.
         </Alert>
       )}
       {serverError && <Alert variant="error">{serverError}</Alert>}
@@ -274,7 +285,12 @@ function BookingCreateForm({
         </FormField>
       </div>
 
-      <p className="text-xs text-ink-subtle">Times are shown in the office zone (Europe/Kyiv).</p>
+      {displayZone !== OFFICE_TIMEZONE && (
+        <p className="text-xs text-ink-subtle">
+          Times above are shown in your local zone; the Kyiv office-hours equivalent is noted next
+          to each option.
+        </p>
+      )}
 
       <FormField label="Title" error={fieldErrors.title}>
         <Input
@@ -338,6 +354,8 @@ interface BookingCreateDialogProps {
   initialSlotStart: string | null;
   /** UTC ISO instant for "now", resolved client-side only (see the schedule page). */
   now: string | null;
+  /** Resolved viewer/browser zone; falls back to the office zone until the browser zone resolves. */
+  displayZone: string;
   emailVerified: boolean;
   onOpenChange: (open: boolean) => void;
   onCloseAutoFocus?: (event: Event) => void;
@@ -350,6 +368,7 @@ export function BookingCreateDialog({
   weekStartUtc,
   initialSlotStart,
   now,
+  displayZone,
   emailVerified,
   onOpenChange,
   onCloseAutoFocus,
@@ -376,6 +395,7 @@ export function BookingCreateDialog({
           days={days}
           initialSlotStart={initialSlotStart}
           now={now}
+          displayZone={displayZone}
           emailVerified={emailVerified}
           onCancel={() => onOpenChange(false)}
           onCreated={onCreated}

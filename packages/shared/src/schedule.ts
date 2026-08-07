@@ -118,6 +118,35 @@ export function getZonedDateOffsetDays(
   );
 }
 
+/**
+ * Whole calendar-day offset, in `zone`, of `endInstant`'s date relative to
+ * `startInstant`'s date (positive when the range crosses one or more
+ * midnights in that zone, 0 when both instants fall on the same zoned
+ * calendar date). Unlike `getZonedDateOffsetDays` (which compares one
+ * instant across two different zones), this compares two different
+ * instants within the *same* zone -- the shape needed to flag a booking
+ * range whose zoned end time reads as an earlier clock time than its start
+ * (e.g. "20:00-00:00") only because it has rolled onto the next calendar
+ * day in that zone, not because the range is actually backwards.
+ */
+export function getInstantRangeDayOffset(
+  startInstant: Instant,
+  endInstant: Instant,
+  zone: string,
+): number {
+  const start = toZonedParts(startInstant, zone);
+  const end = toZonedParts(endInstant, zone);
+  return diffInOfficeCalendarDays(
+    start.year,
+    start.month,
+    start.day,
+    end.year,
+    end.month,
+    end.day,
+    zone,
+  );
+}
+
 export interface BookingPosition {
   /** 0 = Monday's column .. 6 = Sunday's column. */
   dayIndex: number;

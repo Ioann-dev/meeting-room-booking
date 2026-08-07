@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { ComponentProps } from 'react';
 import { BOOKING_ERROR_CODES, zonedWallTimeToUtc, OFFICE_TIMEZONE, type RoomSummary } from 'shared';
@@ -32,6 +32,7 @@ function renderDialog(overrides: Partial<ComponentProps<typeof BookingCreateDial
       weekStartUtc={WEEK_START_UTC}
       initialSlotStart={null}
       now={null}
+      displayZone={OFFICE_TIMEZONE}
       emailVerified
       onOpenChange={onOpenChange}
       onCreated={onCreated}
@@ -124,6 +125,61 @@ describe('BookingCreateDialog validation', () => {
     await user.type(occurrenceInput, '8');
 
     expect(screen.queryByText(/Enter a whole number between 2 and 52/)).not.toBeInTheDocument();
+  });
+});
+
+describe('BookingCreateDialog viewer-zone time display (F1)', () => {
+  beforeEach(() => {
+    mockedCreateBooking.mockReset();
+  });
+
+  it('shows Start/End options in the Europe/Berlin viewer zone, with the Kyiv office time as secondary context', () => {
+    // WEEK_START_UTC is 2026-06-01 00:00 Kyiv; office open (09:00 Kyiv) is
+    // Berlin 08:00 on the same June date (Kyiv EEST +3, Berlin CEST +2).
+    renderDialog({ displayZone: 'Europe/Berlin' });
+
+    const startSelect = screen.getByLabelText('Start');
+    expect(within(startSelect).getAllByRole('option')[0]).toHaveTextContent('08:00 · Office 09:00');
+  });
+
+  it('flags a viewer-local date that differs from the Kyiv business day being browsed', () => {
+    // Kyiv 09:00 on 2026-06-01 is 2026-05-31 20:00 in Pacific/Honolulu
+    // (UTC-10, no DST) -- the previous viewer-local calendar day.
+    renderDialog({ displayZone: 'Pacific/Honolulu' });
+
+    const startSelect = screen.getByLabelText('Start');
+    expect(within(startSelect).getAllByRole('option')[0]).toHaveTextContent(
+      '20:00 (-1d) · Office 09:00',
+    );
+  });
+
+  it('submits the same underlying instant regardless of the viewer display zone', async () => {
+    const user = userEvent.setup();
+    mockedCreateBooking.mockResolvedValue({
+      id: 'booking-1',
+      roomId: ROOM.id,
+      title: 'Sprint planning',
+      startAt: SLOT_START,
+      endAt: SLOT_START,
+      authorName: 'Ada Lovelace',
+      isOwnBooking: true,
+      seriesId: null,
+    });
+    renderDialog({ initialSlotStart: SLOT_START, displayZone: 'Pacific/Honolulu' });
+
+    await user.type(screen.getByLabelText('Title'), 'Sprint planning');
+    await user.click(screen.getByRole('button', { name: 'Book room' }));
+
+    await waitFor(() =>
+      expect(mockedCreateBooking).toHaveBeenCalledWith(
+        expect.objectContaining({ startAt: SLOT_START }),
+      ),
+    );
+  });
+
+  it('does not claim times are shown in the office zone', () => {
+    renderDialog({ displayZone: 'Europe/Berlin' });
+    expect(screen.queryByText(/Times are shown in the office zone/i)).not.toBeInTheDocument();
   });
 });
 

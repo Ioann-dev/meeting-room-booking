@@ -27,6 +27,39 @@ describe('buildStartOptions', () => {
   }
 });
 
+describe('buildStartOptions viewer-zone labels (F1)', () => {
+  it('labels each option in the resolved viewer zone, not the Kyiv office zone', () => {
+    // Kyiv 09:00 on 2026-06-02 is Berlin 08:00 (Kyiv EEST +3, Berlin CEST +2).
+    const options = buildStartOptions(DAY, null, 'Europe/Berlin');
+    const first = options[0]!;
+    expect(first.label).toBe('08:00 · Office 09:00');
+    // The underlying instant a user actually books is untouched by the
+    // display zone -- only the label changes.
+    expect(first.instant).toBe(zonedWallTimeToUtc({ ...DAY, hour: 9, minute: 0 }, OFFICE_TIMEZONE));
+  });
+
+  it('flags a viewer-local date that differs from the Kyiv business day being browsed', () => {
+    // Kyiv 09:00 on 2026-06-02 (UTC+3) is 20:00 the *previous* day in
+    // Pacific/Honolulu (UTC-10, no DST).
+    const options = buildStartOptions(DAY, null, 'Pacific/Honolulu');
+    const first = options[0]!;
+    expect(first.label).toBe('20:00 (-1d) · Office 09:00');
+  });
+
+  it('omits the office suffix entirely when the viewer zone is Kyiv itself', () => {
+    const options = buildStartOptions(DAY, null, OFFICE_TIMEZONE);
+    expect(options[0]!.label).toBe('09:00');
+  });
+
+  it('still only offers Kyiv office-hour slot boundaries regardless of viewer zone', () => {
+    // Same slot count/instants as the Kyiv-labeled case: changing the
+    // display zone must never change which instants are selectable.
+    const kyivInstants = buildStartOptions(DAY, null, OFFICE_TIMEZONE).map((o) => o.instant);
+    const berlinInstants = buildStartOptions(DAY, null, 'Europe/Berlin').map((o) => o.instant);
+    expect(berlinInstants).toEqual(kyivInstants);
+  });
+});
+
 describe('buildEndOptions', () => {
   it('offers every later boundary up to the 4-hour maximum duration', () => {
     const start = buildStartOptions(DAY, null).find((o) => o.label === '09:00')!.instant;
