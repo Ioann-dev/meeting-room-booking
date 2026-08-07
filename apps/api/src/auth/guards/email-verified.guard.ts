@@ -8,9 +8,8 @@ import {
 import { BOOKING_ERROR_CODES } from 'shared';
 import { AuthenticatedRequest } from '../authenticated-request';
 
-// Wired onto POST /bookings (Phase 05) via
-// @UseGuards(SessionGuard, EmailVerifiedGuard) to require a verified email
-// before creating a booking.
+// Wired onto POST /bookings via @UseGuards(SessionGuard, EmailVerifiedGuard)
+// to require a verified email before creating a booking.
 @Injectable()
 export class EmailVerifiedGuard implements CanActivate {
   canActivate(context: ExecutionContext): boolean {

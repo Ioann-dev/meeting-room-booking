@@ -26,9 +26,9 @@ const VARIANT_CLASSES: Record<ToastVariant, string> = {
 const TOAST_DURATION_MS = 5000;
 
 /**
- * Plumbing only in Phase 07: no page triggers a toast yet. The provider is
- * mounted in the authenticated shell so Phase 09/10 flows (booking
- * confirmation, cancellation) can call useToast() without shell changes.
+ * Mounted once in the authenticated shell (not per-page) so every screen
+ * below it -- booking confirmation, cancellation, and any future flow --
+ * can call useToast() without its own provider or layout changes.
  */
 export function ToastProvider({ children }: { children: ReactNode }) {
   const [toasts, setToasts] = useState<ToastItem[]>([]);

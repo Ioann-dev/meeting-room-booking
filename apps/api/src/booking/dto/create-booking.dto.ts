@@ -63,8 +63,8 @@ export class CreateBookingDto {
   @Matches(ISO_INSTANT_PATTERN, { message: `endAt ${INSTANT_FORMAT_MESSAGE}` })
   endAt!: string;
 
-  // Absent: a single booking (Phase 05 behavior, unchanged). Present: a
-  // weekly recurring series anchored at startAt/endAt (Phase 06).
+  // Absent: a single booking. Present: a weekly recurring series anchored
+  // at startAt/endAt.
   //
   // @IsObject() matters beyond a friendlier error: class-validator's
   // @ValidateNested() treats an array as a collection and validates each

@@ -735,8 +735,8 @@ describe('BookingService.createSeries', () => {
     });
   });
 
-  // Renamed for accuracy (Phase 06 review M2): this mocked-Prisma test
-  // proves error mapping and the currentIndex bookkeeping only -- the
+  // This mocked-Prisma test proves error mapping and the currentIndex
+  // bookkeeping only -- the
   // stub's `$transaction` just invokes the callback directly (see
   // buildService's own comment), so it has no real cross-query atomicity
   // and cannot prove that a mid-series conflict actually rolls back
