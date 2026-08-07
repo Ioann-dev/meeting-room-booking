@@ -14,6 +14,3 @@ apps/web/e2e/.auth
 # specification/instruction source documents — participant-facing wording
 # must not be silently reformatted
 docs
-prompts
-CLAUDE.md
-README-FIRST.md

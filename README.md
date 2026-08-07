@@ -211,7 +211,6 @@ apps/web       Next.js frontend
 apps/api       NestJS backend
 packages/shared  Framework-independent types, constants, and time/validation primitives
 docs/          Architecture notes and ADRs
-prompts/       Phase-by-phase build instructions this project was implemented from
 ```
 
 ## License

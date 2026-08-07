@@ -122,9 +122,10 @@ Summarized fully in `docs/decisions/0001-booking-overlap.md`. In short:
   layer's rejection is a `409 SERIES_CONFLICT` naming the specific occurrence that collided
   (index, office-local date/time) — distinct from the single-booking `BOOKING_CONFLICT`, since
   "occurrence 3 of 8 conflicts" is materially more useful than a generic "this slot is booked"
-  for a request that was never about one slot. No partial series is ever persisted (see
-  `docs/implementation-checklist.md` for why all-or-nothing was chosen over skipping the
-  conflicting occurrence).
+  for a request that was never about one slot. No partial series is ever persisted: the spec
+  describes cancelling one occurrence or the whole series later, not partial creation, and
+  silently dropping an occurrence the user asked for would be a worse surprise than a single
+  clear "series conflicts on `<date>`" error asking them to adjust and resubmit.
 - Cancellation operates at two levels. Cancelling one occurrence needs no series-specific code
   at all: an occurrence is just a `Booking` row with a `seriesId`, so the existing
   `POST /bookings/:id/cancel` already handles it. Cancelling a series

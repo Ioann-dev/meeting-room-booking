@@ -7,8 +7,7 @@ Accepted.
 ## Context
 
 Phase 12 requires running a dependency audit and addressing safe high/critical findings
-without blind major upgrades (CLAUDE.md, `prompts/12-quality-security.md`). `npm audit` at
-the repository root reports:
+without blind major upgrades. `npm audit` at the repository root reports:
 
 ```
 postcss  <=8.5.22   (high) — several XSS/path-traversal advisories

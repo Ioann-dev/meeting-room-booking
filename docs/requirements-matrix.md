@@ -3,7 +3,7 @@
 Maps every participant-facing requirement from `docs/original-spec-participant-requirements.md`
 to its implementation area, planned phase, and verification method.
 
-Phase numbers refer to `prompts/NN-*.md`. "Manual QA" means a scripted check performed during
+Phase numbers refer to this project's internal implementation phases (00-14). "Manual QA" means a scripted check performed during
 Phase 14 release audit against the running application; it is not a substitute for automated
 coverage where automated coverage is feasible.
 
