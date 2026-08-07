@@ -37,6 +37,17 @@ governed by its own respective license. Nothing in this LICENSE claims
 ownership of, or alters the license terms of, any third-party dependency.
 See THIRD_PARTY_NOTICES.md and NOTICE for details.
 
+UA-SKILLS CHALLENGE MATERIAL
+
+`docs/original-spec.pdf` and `docs/original-spec-participant-requirements.md`
+reproduce or summarize the UA-Skills-provided challenge specification and
+remain the property of their respective owner(s); nothing in this LICENSE
+claims proprietary ownership over that material. The proprietary claim
+above applies only to the original implementation source code and original
+implementation documentation authored for this submission. The evaluation
+permission granted above extends to this challenge material to the same
+limited extent already described.
+
 DISCLAIMER
 
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS

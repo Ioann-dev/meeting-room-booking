@@ -59,8 +59,15 @@ project's own code, not a third-party dependency, and is covered by `LICENSE` in
 Each workspace's `package.json` (`devDependencies`) additionally lists development-time-only
 tooling — test frameworks, linters, bundlers, type checkers, and the like (for example: Jest,
 Playwright, ESLint, TypeScript, Tailwind CSS, Prisma CLI, NestJS CLI, Prettier). None of these
-are bundled into the built application; they remain subject to their own respective licenses.
-Across all workspaces, this development tooling resolves to standard permissive/weak-copyleft
+are runtime import dependencies of the built application's own source code merely by being
+listed as `devDependencies`. That said, `apps/api/Dockerfile` and `apps/web/Dockerfile` both
+install with a single wholesale `npm ci` and copy that same `node_modules` into the runtime
+image stage rather than a separate production-only install (see each Dockerfile's own comment
+for the trade-off) — so, due to that image-construction choice, some development tooling
+packages may still be physically present on disk in the built image even though the
+application never imports them. Every third-party package, whether a runtime or a
+development-only dependency, remains subject to its own respective license regardless. Across
+all workspaces, this development tooling resolves to standard permissive/weak-copyleft
 open-source licenses: predominantly MIT, plus Apache-2.0, BSD-2-Clause (`dotenv`), and MPL-2.0
 (`@axe-core/playwright`) — no copyleft license that would affect this project's own source code.
 

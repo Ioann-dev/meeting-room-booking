@@ -18,3 +18,8 @@ NOTICE or in LICENSE claims ownership of any third-party dependency.
 
 See THIRD_PARTY_NOTICES.md for a summary of the third-party dependencies
 used by this project and their licenses.
+
+This repository also includes UA-Skills-provided challenge material
+(`docs/original-spec.pdf`, `docs/original-spec-participant-requirements.md`),
+which remains the property of its respective owner(s) and is not covered
+by the proprietary claim above.
