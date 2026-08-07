@@ -3,6 +3,7 @@ import { INestApplication } from '@nestjs/common';
 import type { App } from 'supertest/types';
 import { createTestApp } from '../utils/bootstrap-app';
 import { NotificationsService } from '../../src/notifications/notifications.service';
+import { BookingService } from '../../src/booking/booking.service';
 import { PrismaService } from '../../src/prisma/prisma.service';
 import { BookingStatus } from '../../generated/prisma/client';
 
@@ -16,11 +17,13 @@ describe('Booking-ending-soon notification check (database-level)', () => {
   let app: INestApplication<App>;
   let prisma: PrismaService;
   let notifications: NotificationsService;
+  let bookings: BookingService;
 
   beforeAll(async () => {
     app = await createTestApp();
     prisma = app.get(PrismaService);
     notifications = app.get(NotificationsService);
+    bookings = app.get(BookingService);
   });
 
   afterAll(async () => {
@@ -238,6 +241,96 @@ describe('Booking-ending-soon notification check (database-level)', () => {
     await notifications.runEndingSoonCheck();
     await notifications.runEndingSoonCheck();
     await notifications.runEndingSoonCheck();
+
+    expect(await notificationsFor(ending.id)).toHaveLength(1);
+  });
+
+  // The scheduled check can only enforce "no notification if either
+  // booking is cancelled" as a precondition at creation time; a
+  // cancellation landing between creation and delivery needs its own
+  // cleanup, which lives in BookingService.cancel()/cancelSeries().
+  it('retracts an already-created notification when the next booking is cancelled before delivery', async () => {
+    const room = await createRoom();
+    const owner = await createUser('owner');
+    const nextOwner = await createUser('next-owner');
+    const now = Date.now();
+
+    const ending = await createBooking({
+      roomId: room.id,
+      userId: owner.id,
+      startAt: new Date(now - 20 * MINUTE_MS),
+      endAt: new Date(now + 5 * MINUTE_MS),
+    });
+    const next = await createBooking({
+      roomId: room.id,
+      userId: nextOwner.id,
+      startAt: ending.endAt,
+      endAt: new Date(ending.endAt.getTime() + 30 * MINUTE_MS),
+    });
+
+    await notifications.runEndingSoonCheck();
+    expect(await notificationsFor(ending.id)).toHaveLength(1);
+
+    await bookings.cancel(next.id, nextOwner.id);
+
+    expect(await notificationsFor(ending.id)).toHaveLength(0);
+  });
+
+  it('retracts an already-created notification when the ending booking itself is cancelled before delivery', async () => {
+    const room = await createRoom();
+    const owner = await createUser('owner');
+    const nextOwner = await createUser('next-owner');
+    const now = Date.now();
+
+    const ending = await createBooking({
+      roomId: room.id,
+      userId: owner.id,
+      startAt: new Date(now - 20 * MINUTE_MS),
+      endAt: new Date(now + 5 * MINUTE_MS),
+    });
+    await createBooking({
+      roomId: room.id,
+      userId: nextOwner.id,
+      startAt: ending.endAt,
+      endAt: new Date(ending.endAt.getTime() + 30 * MINUTE_MS),
+    });
+
+    await notifications.runEndingSoonCheck();
+    expect(await notificationsFor(ending.id)).toHaveLength(1);
+
+    await bookings.cancel(ending.id, owner.id);
+
+    expect(await notificationsFor(ending.id)).toHaveLength(0);
+  });
+
+  it('does not retroactively remove a notification that was already delivered', async () => {
+    const room = await createRoom();
+    const owner = await createUser('owner');
+    const nextOwner = await createUser('next-owner');
+    const now = Date.now();
+
+    const ending = await createBooking({
+      roomId: room.id,
+      userId: owner.id,
+      startAt: new Date(now - 20 * MINUTE_MS),
+      endAt: new Date(now + 5 * MINUTE_MS),
+    });
+    const next = await createBooking({
+      roomId: room.id,
+      userId: nextOwner.id,
+      startAt: ending.endAt,
+      endAt: new Date(ending.endAt.getTime() + 30 * MINUTE_MS),
+    });
+
+    await notifications.runEndingSoonCheck();
+    // Simulates the owner having already polled/loaded the notification
+    // (listForUser() is what normally flips this) before the cancellation.
+    await prisma.notification.updateMany({
+      where: { endingBookingId: ending.id },
+      data: { deliveredAt: new Date() },
+    });
+
+    await bookings.cancel(next.id, nextOwner.id);
 
     expect(await notificationsFor(ending.id)).toHaveLength(1);
   });

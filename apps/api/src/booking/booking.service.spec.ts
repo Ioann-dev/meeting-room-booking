@@ -56,6 +56,7 @@ function buildService(overrides: {
   updateSeries?: jest.Mock;
   updateManyBooking?: jest.Mock;
   transaction?: jest.Mock;
+  deleteManyNotification?: jest.Mock;
 }) {
   const booking = {
     create:
@@ -82,12 +83,16 @@ function buildService(overrides: {
       jest.fn().mockResolvedValue({ id: 'series-1', ownerId: 'user-1', status: 'ACTIVE' }),
     update: overrides.updateSeries ?? jest.fn().mockResolvedValue({}),
   };
+  const notification = {
+    deleteMany: overrides.deleteManyNotification ?? jest.fn().mockResolvedValue({ count: 0 }),
+  };
   const prismaStub: Record<string, unknown> = {
     room: {
       findUnique: overrides.findUniqueRoom ?? jest.fn().mockResolvedValue({ id: 'room-1' }),
     },
     booking,
     bookingSeries,
+    notification,
   };
   // Mirrors both $transaction call shapes the service uses: an interactive
   // callback (createSeries) and a plain array of already-constructed query

@@ -333,7 +333,12 @@ export class BookingService {
   // has already ended, or one that was cancelled regardless of when it was
   // scheduled for -- so every booking a user has ever made appears in
   // exactly one of the two lists, and a cancelled-but-still-in-the-future
-  // booking doesn't just vanish from view.
+  // booking doesn't just vanish from view. Reviewed during the post-roadmap
+  // audit as a possible defect (a cancelled future booking can sort above
+  // genuinely-elapsed ones under "most recent first"); kept as-is since the
+  // alternative -- a cancelled future booking disappearing from both lists
+  // -- is worse, and BookingRow's own "✕ Cancelled" marker (non-color)
+  // already tells the two cases apart at a glance.
   async listMinePast(
     requesterId: string,
     cursor: string | undefined,
@@ -401,10 +406,26 @@ export class BookingService {
       return;
     }
 
-    await this.prisma.booking.update({
-      where: { id: bookingId },
-      data: { status: BookingStatus.CANCELLED, cancelledAt: new Date() },
-    });
+    // One transaction: a notification created for this booking's
+    // ending-soon window (as either the ending or the immediately-next
+    // booking) must never survive a cancellation that lands between its
+    // creation and delivery -- the spec requires "no notification if
+    // either booking is cancelled", and the scheduled check alone can
+    // only enforce that at creation time, not retroactively. Only
+    // undelivered rows are removed: one already shown to the user (bell
+    // popover or toast) is left as-is rather than retroactively yanked.
+    await this.prisma.$transaction([
+      this.prisma.booking.update({
+        where: { id: bookingId },
+        data: { status: BookingStatus.CANCELLED, cancelledAt: new Date() },
+      }),
+      this.prisma.notification.deleteMany({
+        where: {
+          deliveredAt: null,
+          OR: [{ endingBookingId: bookingId }, { nextBookingId: bookingId }],
+        },
+      }),
+    ]);
   }
 
   // Cancelling one occurrence needs no dedicated series logic at all: an
@@ -430,10 +451,12 @@ export class BookingService {
       return;
     }
 
-    // Both updates in one transaction: an interrupted cancellation
-    // (process crash between the two statements) must never leave the
-    // series marked ACTIVE while its occurrences are CANCELLED, or vice
-    // versa -- either both happen or neither does.
+    // All three in one transaction: an interrupted cancellation (process
+    // crash mid-way) must never leave the series marked ACTIVE while its
+    // occurrences are CANCELLED, or vice versa -- either everything
+    // happens or nothing does. The notification cleanup mirrors cancel()
+    // above (see its own comment): only undelivered rows tied to any
+    // occurrence in this series are removed.
     await this.prisma.$transaction([
       this.prisma.booking.updateMany({
         where: { seriesId, status: BookingStatus.ACTIVE },
@@ -442,6 +465,12 @@ export class BookingService {
       this.prisma.bookingSeries.update({
         where: { id: seriesId },
         data: { status: BookingSeriesStatus.CANCELLED },
+      }),
+      this.prisma.notification.deleteMany({
+        where: {
+          deliveredAt: null,
+          OR: [{ endingBooking: { seriesId } }, { nextBooking: { seriesId } }],
+        },
       }),
     ]);
   }
