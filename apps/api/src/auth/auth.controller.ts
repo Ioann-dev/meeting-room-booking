@@ -1,5 +1,4 @@
 import { Body, Controller, Get, HttpCode, Post, Req, Res, UseGuards } from '@nestjs/common';
-import { ThrottlerGuard } from '@nestjs/throttler';
 import type { Request, Response } from 'express';
 import type { CurrentUser as CurrentUserDto } from 'shared';
 import { AuthService } from './auth.service';
@@ -7,6 +6,7 @@ import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { VerifyEmailDto } from './dto/verify-email.dto';
 import { SessionGuard } from './guards/session.guard';
+import { AuthThrottlerGuard } from './guards/auth-throttler.guard';
 import { CurrentUser } from './decorators/current-user.decorator';
 import type { AuthenticatedRequest } from './authenticated-request';
 import type { AuthenticatedUser } from './auth.service';
@@ -20,9 +20,11 @@ export class AuthController {
   // Applied only to the two endpoints an attacker would actually hammer
   // (credential stuffing on login, account enumeration/spam via register),
   // not globally -- the read-mostly schedule/booking endpoints have no
-  // comparable abuse case yet. Uses the ThrottlerModule default configured
-  // in app.module.ts (10 requests/minute).
-  @UseGuards(ThrottlerGuard)
+  // comparable abuse case yet. AuthThrottlerGuard keys by the submitted
+  // email rather than req.ip -- see its own comment for why IP-based
+  // tracking doesn't hold up through apps/web's proxy. Uses the
+  // ThrottlerModule default configured in app.module.ts (10 requests/minute).
+  @UseGuards(AuthThrottlerGuard)
   @Post('register')
   async register(
     @Body() dto: RegisterDto,
@@ -34,7 +36,7 @@ export class AuthController {
     return this.authService.toCurrentUser(user);
   }
 
-  @UseGuards(ThrottlerGuard)
+  @UseGuards(AuthThrottlerGuard)
   @Post('login')
   @HttpCode(200)
   async login(

@@ -52,10 +52,10 @@ describe('Auth rate limiting (e2e)', () => {
     const email = `rate-limit.${randomUUID()}@example.com`;
     const payload = { email, password: 'DoesNotMatter123' };
 
-    // The @Throttle override on POST /auth/login allows 10 requests/minute;
-    // none of these should ever succeed (the account doesn't exist), so a
-    // non-429 status through the 10th request must be the credential check
-    // (401) doing its job, not the rate limiter firing early or not at all.
+    // AuthThrottlerGuard allows 10 requests/minute per account; none of
+    // these should ever succeed (the account doesn't exist), so a non-429
+    // status through the 10th request must be the credential check (401)
+    // doing its job, not the rate limiter firing early or not at all.
     for (let attempt = 1; attempt <= 10; attempt += 1) {
       const response = await request(app.getHttpServer()).post('/auth/login').send(payload);
       expect(response.status).toBe(401);
@@ -65,36 +65,44 @@ describe('Auth rate limiting (e2e)', () => {
     expect(throttled.status).toBe(429);
   });
 
-  // ThrottlerGuard keys its bucket on req.ip, and every real request to this
-  // API passes through exactly one proxy hop (apps/web's rewrite in dev, a
-  // reverse proxy in production -- see main.ts's `trust proxy` comment).
-  // Without `trust proxy` configured, Express ignores X-Forwarded-For
-  // entirely and every client resolves to the same req.ip (the proxy's own
-  // socket), so two *different* real users would silently share one login
-  // bucket -- one busy or malicious client locks out everyone else behind
-  // the same proxy. This proves distinct forwarded clients get independent
-  // buckets instead.
-  it('tracks distinct forwarded clients independently, not as one shared bucket', async () => {
-    const email = `rate-limit-proxy.${randomUUID()}@example.com`;
-    const payload = { email, password: 'DoesNotMatter123' };
+  // Real proxy topology: apps/web forwards /api/* through Next's own
+  // rewrites(), not a dedicated reverse proxy that adds or strips
+  // X-Forwarded-For itself -- so a client-supplied X-Forwarded-For header
+  // passes through to this service completely unmodified (see
+  // AuthThrottlerGuard's own comment for the full reasoning). Keying the
+  // tracker on the submitted email rather than req.ip closes both
+  // failure modes that IP-based tracking had under that topology: an
+  // attacker can no longer bypass the limit by rotating a spoofed
+  // X-Forwarded-For header against one target account, and two different
+  // real users never collide into one shared bucket just because they
+  // happen to share a network path.
+  it('closes the X-Forwarded-For bypass and keeps distinct accounts independent', async () => {
+    const attackedEmail = `rate-limit-target.${randomUUID()}@example.com`;
+    const payload = { email: attackedEmail, password: 'DoesNotMatter123' };
 
     for (let attempt = 1; attempt <= 10; attempt += 1) {
-      const response = await request(app.getHttpServer())
-        .post('/auth/login')
-        .set('X-Forwarded-For', '10.0.0.1')
-        .send(payload);
+      const response = await request(app.getHttpServer()).post('/auth/login').send(payload);
       expect(response.status).toBe(401);
     }
-    const stillThrottledForFirstClient = await request(app.getHttpServer())
-      .post('/auth/login')
-      .set('X-Forwarded-For', '10.0.0.1')
-      .send(payload);
-    expect(stillThrottledForFirstClient.status).toBe(429);
+    const throttled = await request(app.getHttpServer()).post('/auth/login').send(payload);
+    expect(throttled.status).toBe(429);
 
-    const secondClient = await request(app.getHttpServer())
+    // The exact bypass the prior IP-keyed guard allowed: rotate a
+    // client-supplied X-Forwarded-For header on every request against the
+    // same target account. This must still be throttled.
+    const spoofedBypassAttempt = await request(app.getHttpServer())
       .post('/auth/login')
-      .set('X-Forwarded-For', '10.0.0.2')
+      .set('X-Forwarded-For', `10.0.0.${Math.floor(Math.random() * 250) + 1}`)
       .send(payload);
-    expect(secondClient.status).toBe(401);
+    expect(spoofedBypassAttempt.status).toBe(429);
+
+    // A different account, from the exact same connection and with no
+    // spoofed headers at all (the realistic "another real user behind the
+    // same web process" case), gets its own independent bucket.
+    const otherEmail = `rate-limit-other.${randomUUID()}@example.com`;
+    const otherAccount = await request(app.getHttpServer())
+      .post('/auth/login')
+      .send({ email: otherEmail, password: 'DoesNotMatter123' });
+    expect(otherAccount.status).toBe(401);
   });
 });
