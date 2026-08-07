@@ -303,6 +303,61 @@ describe('Booking-ending-soon notification check (database-level)', () => {
     expect(await notificationsFor(ending.id)).toHaveLength(0);
   });
 
+  // Reproduces the exact dangerous interleaving F5 closes: the scheduler
+  // has already read `ending` as a qualifying candidate (the outer
+  // findMany in checkEndingSoon, matching this test's fixture) and is
+  // mid-flight resolving its adjacent "next booking" lookup -- the last
+  // read before the old code would have built the notification insert
+  // from that now-stale candidate. The cancellation is injected from
+  // *inside* that lookup's own real implementation, so it becomes
+  // authoritative (commits) strictly between the scheduler's read and its
+  // eventual notification write, not before or after. Against the old
+  // check-then-trust-stale-read code this created an invalid notification
+  // for an already-cancelled booking; against the fix (an atomic
+  // INSERT...SELECT...WHERE that re-reads booking status as part of the
+  // same statement as the write) it must not.
+  it('creates no notification when the ending booking is cancelled between the scheduler reading it and writing the notification (F5 race)', async () => {
+    const room = await createRoom();
+    const owner = await createUser('owner');
+    const nextOwner = await createUser('next-owner');
+    const now = Date.now();
+
+    const ending = await createBooking({
+      roomId: room.id,
+      userId: owner.id,
+      startAt: new Date(now - 20 * MINUTE_MS),
+      endAt: new Date(now + 5 * MINUTE_MS),
+    });
+    await createBooking({
+      roomId: room.id,
+      userId: nextOwner.id,
+      startAt: ending.endAt,
+      endAt: new Date(ending.endAt.getTime() + 30 * MINUTE_MS),
+    });
+
+    const originalFindFirst = prisma.booking.findFirst.bind(prisma.booking);
+    const findFirstSpy = jest.spyOn(prisma.booking, 'findFirst').mockImplementationOnce(
+      // Prisma's real findFirst returns a chainable Prisma__BookingClient
+      // ("thenable" plus fluent relation methods like .room()/.user()),
+      // not a plain Promise -- application code only ever awaits it, never
+      // uses the fluent methods, so a plain-Promise mock is a faithful
+      // stand-in at runtime even though its structural type is narrower.
+      (async (...args: Parameters<typeof originalFindFirst>) => {
+        const result = await originalFindFirst(...args);
+        await bookings.cancel(ending.id, owner.id);
+        return result;
+      }) as typeof prisma.booking.findFirst,
+    );
+
+    await notifications.runEndingSoonCheck();
+
+    expect(await notificationsFor(ending.id)).toHaveLength(0);
+    const cancelled = await prisma.booking.findUniqueOrThrow({ where: { id: ending.id } });
+    expect(cancelled.status).toBe(BookingStatus.CANCELLED);
+
+    findFirstSpy.mockRestore();
+  });
+
   it('does not retroactively remove a notification that was already delivered', async () => {
     const room = await createRoom();
     const owner = await createUser('owner');

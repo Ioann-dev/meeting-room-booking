@@ -88,15 +88,27 @@ export class NotificationsService {
 
   /**
    * Finds every active booking currently ending within the notify window
-   * with an active, immediately-adjacent next booking in the same room,
-   * and persists one notification each. Both booking-status filters are
-   * re-evaluated on every tick straight from the database, so a
-   * cancellation removes a booking from the candidate set before the next
-   * run without any separate invalidation step. `dedupeKey`'s unique
-   * constraint (derived deterministically from the ending booking's id) is
-   * the actual once-only guarantee -- `skipDuplicates` turns what would
-   * otherwise be a unique-violation error on a booking re-seen across
-   * multiple ticks into a silent, correct no-op.
+   * with an active, immediately-adjacent next booking in the same room, and
+   * persists one notification each.
+   *
+   * The candidate lists below (`endingSoon`, each `nextBooking`) are reads,
+   * not authority -- either booking can be cancelled by a concurrent
+   * request at any point after they're read and before this method's own
+   * writes commit, and `cancel()`/`cancelSeries()` only retract a
+   * notification that already exists at the moment they run. Without a
+   * further check, a cancellation landing in that window would leave this
+   * method inserting a notification for a booking that is, by the time the
+   * insert executes, already cancelled -- the exact bug the feature
+   * promises can't happen. So the actual write is a single atomic
+   * `INSERT ... SELECT ... WHERE` per candidate (see `insertIfStillActive`)
+   * that re-reads both bookings' current `status` from the database as
+   * part of the same statement that performs the insert, instead of
+   * trusting the earlier in-memory read -- there is no gap between "is this
+   * still valid" and "write it" for a concurrent cancellation to land in.
+   * `dedupeKey`'s unique constraint (derived deterministically from the
+   * ending booking's id) remains the once-only guarantee across repeated
+   * ticks seeing the same booking; `ON CONFLICT ... DO NOTHING` is the raw-
+   * SQL equivalent of `skipDuplicates` for that case.
    */
   // A transient DB outage must not turn into an unhandled rejection --
   // there is no caller to report to (the scheduler fires this itself), and
@@ -138,13 +150,7 @@ export class NotificationsService {
     // "is a booking starting exactly when this one ends" -- not worth the
     // extra complexity of a batched IN-clause-plus-grouping version for a
     // bonus feature at this scale.
-    const toCreate: {
-      recipientId: string;
-      type: NotificationType;
-      endingBookingId: string;
-      nextBookingId: string;
-      dedupeKey: string;
-    }[] = [];
+    const candidates: { endingBookingId: string; nextBookingId: string; dedupeKey: string }[] = [];
     for (const booking of endingSoon) {
       const nextBooking = await this.prisma.booking.findFirst({
         where: { roomId: booking.roomId, status: BookingStatus.ACTIVE, startAt: booking.endAt },
@@ -153,25 +159,70 @@ export class NotificationsService {
       if (!nextBooking) {
         continue;
       }
-      toCreate.push({
-        recipientId: booking.userId,
-        type: NotificationType.BOOKING_ENDING_SOON,
+      candidates.push({
         endingBookingId: booking.id,
         nextBookingId: nextBooking.id,
         dedupeKey: `${NotificationType.BOOKING_ENDING_SOON}:${booking.id}`,
       });
     }
-    if (toCreate.length === 0) {
+    if (candidates.length === 0) {
       return;
     }
 
-    const result = await this.prisma.notification.createMany({
-      data: toCreate,
-      skipDuplicates: true,
-    });
-    if (result.count > 0) {
-      this.logger.log(`Created ${result.count} ending-soon notification(s)`);
+    let createdCount = 0;
+    for (const candidate of candidates) {
+      createdCount += await this.insertIfStillActive(candidate);
     }
+    if (createdCount > 0) {
+      this.logger.log(`Created ${createdCount} ending-soon notification(s)`);
+    }
+  }
+
+  /**
+   * Inserts one BOOKING_ENDING_SOON notification, but only for rows where
+   * both the ending and next booking are still ACTIVE *at the moment this
+   * statement executes* -- re-read from "Booking" in the same SELECT that
+   * feeds the INSERT, not the caller's earlier (by now potentially stale)
+   * read. Returns the number of rows actually inserted (0 when either
+   * booking is no longer active, or the dedupeKey already exists from an
+   * earlier tick).
+   *
+   * `FOR KEY SHARE OF eb, nb` is load-bearing, not just the SELECT...WHERE
+   * re-check on its own: under READ COMMITTED (this app's default, and
+   * Postgres's own default), a plain SELECT never blocks on another
+   * transaction's uncommitted row lock -- it just reads the last-committed
+   * version as of when this statement started. cancel()/cancelSeries()
+   * (BookingService) run their own status UPDATE and this method's
+   * candidate booking(s) in the same multi-statement transaction; without a
+   * locking read here, this SELECT could take its snapshot *before* that
+   * UPDATE commits (correctly seeing ACTIVE, since it hadn't committed yet)
+   * while the physical INSERT itself only completes *after* that
+   * transaction commits -- by which point cancel's own notification-
+   * cleanup step has already run and found nothing to delete, orphaning an
+   * invalid notification despite every individual read having been
+   * "correct" at the instant it happened. `FOR KEY SHARE` forces this
+   * SELECT to block if `cancel()`'s UPDATE already holds the row, then
+   * (per Postgres's standard EvalPlanQual re-check) re-evaluates the WHERE
+   * clause against the just-committed row once unblocked -- closing that
+   * gap rather than merely narrowing it. KEY SHARE, not the stronger
+   * UPDATE/SHARE, since this statement only ever reads these rows.
+   */
+  private async insertIfStillActive(candidate: {
+    endingBookingId: string;
+    nextBookingId: string;
+    dedupeKey: string;
+  }): Promise<number> {
+    return this.prisma.$executeRaw`
+      INSERT INTO "Notification" ("id", "recipientId", "type", "endingBookingId", "nextBookingId", "dedupeKey")
+      SELECT gen_random_uuid(), eb."userId", 'BOOKING_ENDING_SOON'::"NotificationType", eb."id", nb."id", ${candidate.dedupeKey}
+      FROM "Booking" eb
+      JOIN "Booking" nb ON nb."id" = ${candidate.nextBookingId}::uuid
+      WHERE eb."id" = ${candidate.endingBookingId}::uuid
+        AND eb."status" = 'ACTIVE'
+        AND nb."status" = 'ACTIVE'
+      FOR KEY SHARE OF eb, nb
+      ON CONFLICT ("dedupeKey") DO NOTHING
+    `;
   }
 
   private getNotifyBeforeMinutes(): number {
