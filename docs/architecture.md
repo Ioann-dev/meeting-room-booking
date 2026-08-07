@@ -36,15 +36,22 @@ this scale.
   request arrived over HTTPS. No JWT: an opaque DB-backed session lets us revoke on logout by
   deleting the row, with no token blacklist needed. This matches project scale — a JWT's main
   advantage (stateless verification across services) doesn't apply to a single API process.
-- `apps/web` reaches `apps/api` through a same-origin proxy, not a cross-origin fetch: Next.js
-  rewrites in local dev, and a single reverse-proxied origin in Docker Compose, forward
-  `/api/*` from the web origin to the API service. The browser therefore never needs a
+- `apps/web` reaches `apps/api` through a same-origin proxy, not a cross-origin fetch: Next.js's
+  own `rewrites()` (`next.config.ts`) forward `/api/*` from the web origin to the API service,
+  identically in local dev and in the Docker Compose stack — there is no separate reverse-proxy
+  service in front of either; `web` is the only hop. The browser therefore never needs a
   cross-site cookie. This is a deliberate simplification, not an oversight — a cross-origin
   `SameSite=None; Secure` cookie would only work over HTTPS, and the challenge's clean-machine
   launch (`docker-compose up`, README-driven, no TLS setup implied) runs over plain HTTP.
   Without same-origin proxying, "session survives page reload" would silently fail on exactly
   the evaluation setup this project is graded on. `SameSite=Lax` plus same-origin is sufficient
   and avoids introducing CORS configuration at all.
+- Because `web`'s rewrite is a plain forwarding proxy, not a trust boundary, it neither adds a
+  verified `X-Forwarded-For` for every request nor strips a client-supplied one -- a caller can
+  set that header to whatever it wants and it reaches `apps/api` unchanged. Anything on the API
+  side that needs a trustworthy per-client identity (e.g. rate limiting) cannot rely on
+  `req.ip`/`X-Forwarded-For` through this hop; see `AuthThrottlerGuard`'s own comment for how the
+  login/register throttle is keyed instead.
 - Every request that requires an identity resolves it through a session guard that loads the
   session row and attaches the user; expired/missing sessions are rejected uniformly.
 - Optional (bonus) email verification: a verification token table, a logged verification
@@ -163,10 +170,11 @@ interaction adaptation of one grid implementation, not a second grid.
 
 ## Clean-machine launch approach
 
-- `docker-compose.yml` brings up Postgres (with a persistent volume), the API, and a reverse
-  proxy in front of `web` that forwards `/api/*` to the API service (see the same-origin
-  session-cookie decision above) — a browser hitting one published port gets the whole app.
-  The app processes point at Postgres via `.env` (copied from `.env.example`).
+- `docker-compose.yml` brings up Postgres (with a persistent volume), the API, and `web` --
+  `web`'s own Next.js rewrite forwards `/api/*` to the API service (see the same-origin
+  session-cookie decision above; there is no separate reverse-proxy container) — a browser
+  hitting one published port gets the whole app. The app processes point at Postgres via `.env`
+  (copied from `.env.example`).
 - A single documented sequence in `README.md` (install → env copy → migrate → seed → run)
   is rehearsed against a genuinely clean checkout during Phase 14, not assumed to work.
 - Seeded seed data (rooms, two test users with credentials in the README, demo bookings) and

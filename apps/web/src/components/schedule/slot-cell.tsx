@@ -21,7 +21,13 @@ export function SlotCell({
   return (
     <td className="relative border-b border-border p-0">
       {isPast ? (
-        <div aria-hidden="true" className="h-full min-h-11 w-full bg-canvas/70 md:min-h-8" />
+        // bg-border (not canvas): canvas and surface differ by only a few
+        // RGB points in this palette, so a canvas-tinted overlay read as
+        // barely-there against the surrounding surface. border is the same
+        // neutral gray already used for every grid line, just applied here
+        // as a soft wash instead of a hairline -- a clearer "unavailable"
+        // read without introducing a new color or texture.
+        <div aria-hidden="true" className="h-full min-h-11 w-full bg-border/50 md:min-h-8" />
       ) : (
         <button
           type="button"
