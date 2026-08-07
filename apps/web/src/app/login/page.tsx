@@ -43,6 +43,41 @@ export default function LoginPage() {
     }
   }, [status, router]);
 
+  // Re-validates a single field against its own already-displayed error
+  // and clears just that error once the field is valid again -- errors
+  // are still only ever *shown* after a submit attempt (handleSubmit is
+  // the one place that can set a new one), so this never validates
+  // eagerly on first keystroke; it only ever removes stale, already-wrong
+  // information once the user has actually fixed it.
+  function clearFieldErrorIfNowValid(
+    field: keyof FieldErrors,
+    nextEmail: string,
+    nextPassword: string,
+  ) {
+    setFieldErrors((current) => {
+      if (!current[field]) {
+        return current;
+      }
+      const revalidated = validate(nextEmail, nextPassword);
+      if (revalidated[field]) {
+        return current;
+      }
+      const next = { ...current };
+      delete next[field];
+      return next;
+    });
+  }
+
+  function handleEmailChange(value: string) {
+    setEmail(value);
+    clearFieldErrorIfNowValid('email', value, password);
+  }
+
+  function handlePasswordChange(value: string) {
+    setPassword(value);
+    clearFieldErrorIfNowValid('password', email, value);
+  }
+
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setServerError(null);
@@ -103,7 +138,7 @@ export default function LoginPage() {
               type="email"
               autoComplete="email"
               value={email}
-              onChange={(event) => setEmail(event.target.value)}
+              onChange={(event) => handleEmailChange(event.target.value)}
             />
           </FormField>
 
@@ -113,7 +148,7 @@ export default function LoginPage() {
               type="password"
               autoComplete="current-password"
               value={password}
-              onChange={(event) => setPassword(event.target.value)}
+              onChange={(event) => handlePasswordChange(event.target.value)}
             />
           </FormField>
 

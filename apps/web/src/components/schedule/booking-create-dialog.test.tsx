@@ -92,6 +92,39 @@ describe('BookingCreateDialog validation', () => {
     expect(await screen.findByText(/Enter a whole number between 2 and 52/)).toBeInTheDocument();
     expect(mockedCreateBooking).not.toHaveBeenCalled();
   });
+
+  it('clears the title error as soon as a valid title is typed, without resubmitting', async () => {
+    const user = userEvent.setup();
+    renderDialog();
+
+    await user.click(screen.getByRole('button', { name: 'Book room' }));
+    const titleInput = await screen.findByLabelText('Title');
+    expect(screen.getByText('Title is required')).toBeInTheDocument();
+    expect(titleInput).toHaveAttribute('aria-invalid', 'true');
+
+    await user.type(titleInput, 'Sprint planning');
+
+    expect(screen.queryByText('Title is required')).not.toBeInTheDocument();
+    expect(titleInput).toHaveAttribute('aria-invalid', 'false');
+  });
+
+  it('clears the occurrence-count error as soon as a valid count is typed', async () => {
+    const user = userEvent.setup();
+    renderDialog();
+
+    await user.type(screen.getByLabelText('Title'), 'Sprint planning');
+    await user.click(screen.getByLabelText('Repeat weekly'));
+    const occurrenceInput = screen.getByLabelText('Number of occurrences');
+    await user.clear(occurrenceInput);
+    await user.type(occurrenceInput, '1');
+    await user.click(screen.getByRole('button', { name: 'Book room' }));
+    expect(await screen.findByText(/Enter a whole number between 2 and 52/)).toBeInTheDocument();
+
+    await user.clear(occurrenceInput);
+    await user.type(occurrenceInput, '8');
+
+    expect(screen.queryByText(/Enter a whole number between 2 and 52/)).not.toBeInTheDocument();
+  });
 });
 
 describe('BookingCreateDialog submission states', () => {

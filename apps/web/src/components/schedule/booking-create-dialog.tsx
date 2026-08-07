@@ -150,6 +150,42 @@ function BookingCreateForm({
     setSelection((current) => ({ ...current, endInstant: nextEnd }));
   }
 
+  // Re-validates a single field against its own already-displayed error
+  // and clears just that error once the field is valid again -- errors
+  // are still only ever *shown* after a submit attempt (handleSubmit is
+  // the one place that can set a new one), so this never validates
+  // eagerly on first keystroke; it only ever removes stale, already-wrong
+  // information once the user has actually fixed it.
+  function clearFieldErrorIfNowValid(
+    field: keyof FieldErrors,
+    nextTitle: string,
+    nextRecurrenceEnabled: boolean,
+    nextOccurrenceCount: string,
+  ) {
+    setFieldErrors((current) => {
+      if (!current[field]) {
+        return current;
+      }
+      const revalidated = validate(nextTitle, nextRecurrenceEnabled, nextOccurrenceCount);
+      if (revalidated[field]) {
+        return current;
+      }
+      const next = { ...current };
+      delete next[field];
+      return next;
+    });
+  }
+
+  function handleTitleChange(value: string) {
+    setTitle(value);
+    clearFieldErrorIfNowValid('title', value, recurrenceEnabled, occurrenceCount);
+  }
+
+  function handleOccurrenceCountChange(value: string) {
+    setOccurrenceCount(value);
+    clearFieldErrorIfNowValid('occurrenceCount', title, recurrenceEnabled, value);
+  }
+
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setServerError(null);
@@ -245,12 +281,15 @@ function BookingCreateForm({
           name="title"
           type="text"
           value={title}
-          onChange={(event) => setTitle(event.target.value)}
+          onChange={(event) => handleTitleChange(event.target.value)}
           maxLength={BOOKING_TITLE_MAX_LENGTH}
         />
       </FormField>
 
-      <label className="flex items-center gap-2 py-2.5 text-sm text-ink">
+      {/* py-3/md:py-2.5: same touch-target treatment as Input/Select/Button
+          below md: -- the checkbox itself is small, but this label is the
+          whole clickable/tappable row. */}
+      <label className="flex items-center gap-2 py-3 text-sm text-ink md:py-2.5">
         <input
           type="checkbox"
           className="h-4 w-4 rounded border-border text-accent"
@@ -273,7 +312,7 @@ function BookingCreateForm({
             min={RECURRENCE_MIN_OCCURRENCES}
             max={RECURRENCE_MAX_OCCURRENCES}
             value={occurrenceCount}
-            onChange={(event) => setOccurrenceCount(event.target.value)}
+            onChange={(event) => handleOccurrenceCountChange(event.target.value)}
           />
         </FormField>
       )}

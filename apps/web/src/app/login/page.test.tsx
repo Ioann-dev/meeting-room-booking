@@ -1,4 +1,5 @@
 import { render, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { useCurrentUser } from '@/hooks/use-current-user';
 import LoginPage from './page';
 
@@ -62,5 +63,32 @@ describe('LoginPage authenticated redirect', () => {
 
     await waitFor(() => expect(replace).toHaveBeenCalledWith('/schedule'));
     expect(screen.queryByRole('heading', { name: 'Log in' })).not.toBeInTheDocument();
+  });
+});
+
+describe('LoginPage field validation', () => {
+  beforeEach(() => {
+    mockedUseCurrentUser.mockReturnValue({
+      status: 'unauthenticated',
+      user: null,
+      refresh: jest.fn(),
+      setUser: jest.fn(),
+      clearUser: jest.fn(),
+    });
+  });
+
+  it('clears the email error as soon as a value is typed, without resubmitting', async () => {
+    const user = userEvent.setup();
+    render(<LoginPage />);
+
+    await user.click(screen.getByRole('button', { name: 'Log in' }));
+    const emailInput = await screen.findByLabelText('Email');
+    expect(screen.getByText('Email is required')).toBeInTheDocument();
+    expect(emailInput).toHaveAttribute('aria-invalid', 'true');
+
+    await user.type(emailInput, 'alice@example.com');
+
+    expect(screen.queryByText('Email is required')).not.toBeInTheDocument();
+    expect(emailInput).toHaveAttribute('aria-invalid', 'false');
   });
 });
