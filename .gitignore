@@ -22,3 +22,7 @@ apps/api/generated
 # editor/OS
 .DS_Store
 *.pem
+
+# local AI tooling state (not part of the shipped project)
+.claude/
+.serena/

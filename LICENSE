@@ -1,0 +1,47 @@
+Copyright © 2026 Ioann Serediuk
+All Rights Reserved.
+
+PROPRIETARY SOFTWARE LICENSE
+
+The original application source code in this repository (excluding the
+third-party, open-source dependencies described below and in
+THIRD_PARTY_NOTICES.md) is the proprietary property of Ioann Serediuk
+("the Copyright Holder").
+
+No permission is granted to any person to copy, modify, redistribute,
+sublicense, sell, commercially exploit, or create derivative works from
+the original project code, in whole or in part, without prior written
+permission from the Copyright Holder.
+
+EVALUATION PERMISSION FOR UA-SKILLS
+
+Notwithstanding the above, the Copyright Holder explicitly grants
+UA-Skills organizers, reviewers, and evaluators a limited, revocable,
+non-exclusive permission to access, clone, execute, build, and inspect
+this project solely for the purpose of assessment and evaluation of the
+associated competition/challenge submission.
+
+This evaluation permission:
+- does NOT transfer ownership of the project or any part of it;
+- does NOT grant any commercial rights;
+- does NOT grant any redistribution rights;
+- does NOT grant any sublicensing rights;
+- is limited strictly to assessment/evaluation activities.
+
+No other rights are granted by implication, estoppel, or otherwise.
+
+THIRD-PARTY SOFTWARE
+
+This project depends on third-party open-source software packages, each
+governed by its own respective license. Nothing in this LICENSE claims
+ownership of, or alters the license terms of, any third-party dependency.
+See THIRD_PARTY_NOTICES.md and NOTICE for details.
+
+DISCLAIMER
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
+OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, AND NONINFRINGEMENT.
+IN NO EVENT SHALL THE COPYRIGHT HOLDER BE LIABLE FOR ANY CLAIM, DAMAGES,
+OR OTHER LIABILITY ARISING FROM, OUT OF, OR IN CONNECTION WITH THE
+SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.

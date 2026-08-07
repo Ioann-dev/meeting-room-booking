@@ -1,0 +1,20 @@
+Meeting Room Booking
+
+Copyright © 2026 Ioann Serediuk
+All Rights Reserved.
+
+This project's original source code is proprietary software of Ioann
+Serediuk, licensed only as described in LICENSE (which includes a
+limited evaluation permission for UA-Skills organizers, reviewers, and
+evaluators).
+
+This project incorporates a number of third-party, open-source software
+dependencies (see package.json in each workspace: apps/web, apps/api,
+packages/shared). Each such dependency remains the property of its
+respective copyright holders and is governed solely by its own license
+terms — nothing in this NOTICE or in LICENSE extends this project's
+proprietary terms to any third-party dependency, and nothing in this
+NOTICE or in LICENSE claims ownership of any third-party dependency.
+
+See THIRD_PARTY_NOTICES.md for a summary of the third-party dependencies
+used by this project and their licenses.

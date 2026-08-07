@@ -213,3 +213,10 @@ packages/shared  Framework-independent types, constants, and time/validation pri
 docs/          Architecture notes and ADRs
 prompts/       Phase-by-phase build instructions this project was implemented from
 ```
+
+## License
+
+© 2026 Ioann Serediuk. All rights reserved. This is a proprietary project; see `LICENSE` for
+full terms, including the limited evaluation permission granted to UA-Skills organizers,
+reviewers, and evaluators. Third-party dependencies retain their own original licenses — see
+`THIRD_PARTY_NOTICES.md`.
