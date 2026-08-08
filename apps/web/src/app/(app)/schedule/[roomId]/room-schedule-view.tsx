@@ -127,7 +127,14 @@ export function RoomScheduleView() {
             phase: 'error',
             message:
               error instanceof ApiError ? error.messages.join(' ') : 'Could not load the schedule.',
-            notFound: error instanceof ApiError && error.status === 404,
+            // A malformed roomId (e.g. a truncated/mistyped link) fails the
+            // API's UUID validation with a 400, not a 404 -- but from the
+            // user's perspective "this id doesn't parse" and "this id
+            // parses but doesn't exist" both mean the same thing: this
+            // room reference doesn't resolve to something they can view.
+            // Both collapse to the same friendly not-found state rather
+            // than leaking the 400's raw validator message.
+            notFound: error instanceof ApiError && (error.status === 404 || error.status === 400),
           },
         });
       });

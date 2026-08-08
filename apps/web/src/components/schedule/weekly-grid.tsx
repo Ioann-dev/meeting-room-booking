@@ -305,8 +305,22 @@ export function WeeklyGrid({
                     on every header regardless of whether any day is today, so
                     its header height is the same deterministic constant here
                     rather than something that would need runtime measurement
-                    to track. */}
-                    <div className="flex min-h-14 items-center p-2">Kyiv</div>
+                    to track -- the same reserved budget comfortably fits the
+                    second "Your time" line added below, so this stays a
+                    zero-cost relabeling, not a size change. This sticky
+                    header is what carries the bold/faint row convention for
+                    a viewer scrolled past the page-level timezone banner or
+                    landing mid-grid: it's the one label that's on-screen at
+                    every scroll position, so it -- not the per-row cells --
+                    is where "which number is which zone" needs to live. */}
+                    <div className="flex min-h-14 flex-col justify-center gap-0.5 p-2 leading-none">
+                      <span>Kyiv</span>
+                      {displayZone !== OFFICE_TIMEZONE && (
+                        <span className="text-[10px] font-normal normal-case tracking-normal text-ink-faint">
+                          Your time
+                        </span>
+                      )}
+                    </div>
                   </th>
                 </tr>
               </thead>
@@ -317,6 +331,19 @@ export function WeeklyGrid({
                     <tr key={slot.rowIndex}>
                       <th
                         scope="row"
+                        // An explicit aria-label, with the two visible spans
+                        // hidden from the accessible tree, so a screen-reader
+                        // user gets the same Kyiv-vs-your-time distinction
+                        // the sticky rail header now carries visually --
+                        // without it, the two bare time strings read as one
+                        // ambiguous run, the same gap the visual bold/faint
+                        // convention alone had. Same technique BookingBlock
+                        // already uses for its own aria-label.
+                        aria-label={
+                          browserLabel !== null
+                            ? `${formatClock(slot.hour, slot.minute)} Kyiv time, ${browserLabel} your time`
+                            : `${formatClock(slot.hour, slot.minute)} Kyiv time`
+                        }
                         className="sticky top-0 z-10 border-b border-r border-border bg-surface p-0 text-right text-xs font-normal text-ink-subtle"
                       >
                         {/* min-h/max-h live on this inner div, not the <th> itself:
@@ -331,11 +358,14 @@ export function WeeklyGrid({
                         height the same way SlotCell/BookingBlock's own inner
                         button already does. */}
                         <div className="flex min-h-11 max-h-11 flex-col justify-center px-2 py-0.5 md:min-h-8 md:max-h-8">
-                          <span className="tabular-nums block leading-none">
+                          <span aria-hidden="true" className="tabular-nums block leading-none">
                             {formatClock(slot.hour, slot.minute)}
                           </span>
                           {browserLabel !== null && (
-                            <span className="tabular-nums block text-[10px] leading-none text-ink-faint">
+                            <span
+                              aria-hidden="true"
+                              className="tabular-nums block text-[10px] leading-none text-ink-faint"
+                            >
                               {browserLabel}
                             </span>
                           )}

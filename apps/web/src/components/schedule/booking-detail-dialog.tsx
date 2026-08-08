@@ -125,6 +125,11 @@ export function BookingDetailDialog({
       onOpenChange={onOpenChange}
       onCloseAutoFocus={onCloseAutoFocus}
       title={booking?.title ?? 'Booking'}
+      // This dialog is the one place in the app that can legitimately have
+      // no action button at all (viewing another attendee's read-only
+      // booking) -- give it an explicit, visible close control rather than
+      // leaving Escape/backdrop-click as the only, undiscoverable way out.
+      showCloseButton
     >
       {/* Rendered only while a booking is selected, and re-keyed per
           booking id: guarantees a fresh mount (detail view, no stale

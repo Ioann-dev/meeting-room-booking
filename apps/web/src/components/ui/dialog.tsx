@@ -20,6 +20,18 @@ interface DialogProps {
    * should do the same here.
    */
   onCloseAutoFocus?: (event: Event) => void;
+  /**
+   * Opt-in, not default-on: a purely informational/read-only dialog (e.g.
+   * viewing another attendee's booking) can render zero action buttons,
+   * leaving Escape/backdrop-click as the only way out -- both work, but
+   * neither is visible. A dialog whose content already offers an explicit
+   * primary action (create, confirm/keep) doesn't need a second, redundant
+   * close affordance, so existing callers stay unchanged unless they ask
+   * for this. Uses the same RadixDialog.Close mechanism as Escape, so it
+   * carries no new close behavior of its own -- only a discoverable,
+   * keyboard-reachable trigger for what already exists.
+   */
+  showCloseButton?: boolean;
 }
 
 /**
@@ -35,6 +47,7 @@ export function Dialog({
   children,
   className,
   onCloseAutoFocus,
+  showCloseButton = false,
 }: DialogProps) {
   return (
     <RadixDialog.Root open={open} onOpenChange={onOpenChange}>
@@ -60,13 +73,49 @@ export function Dialog({
             className,
           )}
         >
-          <RadixDialog.Title className="text-base font-semibold text-ink">
-            {title}
-          </RadixDialog.Title>
-          {description && (
-            <RadixDialog.Description className="mt-1 text-sm text-ink-subtle">
-              {description}
-            </RadixDialog.Description>
+          {showCloseButton ? (
+            <div className="flex items-start justify-between gap-4">
+              <div className="min-w-0">
+                <RadixDialog.Title className="text-base font-semibold text-ink">
+                  {title}
+                </RadixDialog.Title>
+                {description && (
+                  <RadixDialog.Description className="mt-1 text-sm text-ink-subtle">
+                    {description}
+                  </RadixDialog.Description>
+                )}
+              </div>
+              {/* Same RadixDialog.Close + icon pattern MobileNav already uses
+                  for its sheet variant -- kept visually and behaviorally
+                  identical rather than introducing a second close-button
+                  style. h-11/w-11 below md: matches this app's established
+                  touch-target bar (see Button/Input), md:h-9/w-9 restores
+                  the current desktop density. */}
+              <RadixDialog.Close
+                aria-label="Close"
+                className="-mr-2 -mt-2 flex h-11 w-11 shrink-0 items-center justify-center rounded-md text-ink-muted transition-colors hover:bg-canvas hover:text-ink md:h-9 md:w-9"
+              >
+                <svg viewBox="0 0 20 20" fill="none" aria-hidden="true" className="h-5 w-5">
+                  <path
+                    d="m5 5 10 10M15 5 5 15"
+                    stroke="currentColor"
+                    strokeWidth="1.6"
+                    strokeLinecap="round"
+                  />
+                </svg>
+              </RadixDialog.Close>
+            </div>
+          ) : (
+            <>
+              <RadixDialog.Title className="text-base font-semibold text-ink">
+                {title}
+              </RadixDialog.Title>
+              {description && (
+                <RadixDialog.Description className="mt-1 text-sm text-ink-subtle">
+                  {description}
+                </RadixDialog.Description>
+              )}
+            </>
           )}
           <div className="mt-4">{children}</div>
         </RadixDialog.Content>

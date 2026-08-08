@@ -20,9 +20,9 @@ async function checkHealth(): Promise<boolean> {
   }
 }
 
-function FullPageLoading() {
+function ContentLoading() {
   return (
-    <div className="flex min-h-screen items-center justify-center">
+    <div className="flex min-h-[50vh] items-center justify-center">
       <Spinner className="h-6 w-6 text-ink-faint" />
     </div>
   );
@@ -52,11 +52,21 @@ export function AppShell({ children }: { children: ReactNode }) {
     }
   }, [status, router]);
 
-  if (status === 'loading' || status === 'unauthenticated' || health === 'checking') {
-    return <FullPageLoading />;
-  }
+  // Covers session bootstrap, the brief unauthenticated tick before the
+  // redirect above fires, and the health check -- none of these have
+  // anything content-shaped to show yet, but the persistent shell
+  // (wordmark, nav, timezone banner) below needs none of them either, so
+  // only the content region collapses to a spinner instead of the whole
+  // page going blank and header-less.
+  const isLoadingShell =
+    status === 'loading' || status === 'unauthenticated' || health === 'checking';
 
-  if (health === 'error') {
+  // Distinct from the loading case: the server is confirmed unreachable,
+  // not just not-yet-checked, and every other piece of shell chrome
+  // (notification bell, nav) would also fail against it -- this stays a
+  // dedicated full-page takeover rather than a half-working shell around
+  // a component that can't do anything useful.
+  if (!isLoadingShell && health === 'error') {
     return (
       <div className="flex min-h-screen items-center justify-center px-4">
         <ErrorState
@@ -90,7 +100,7 @@ export function AppShell({ children }: { children: ReactNode }) {
               line rather than a bordered Alert box, so the trailing space
               before page content only needs to be proportionate to that
               smaller footprint. */}
-          <div className="mt-3 first:mt-0">{children}</div>
+          <div className="mt-3 first:mt-0">{isLoadingShell ? <ContentLoading /> : children}</div>
         </main>
       </div>
     </UserTimeZoneProvider>

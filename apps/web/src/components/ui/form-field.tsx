@@ -1,6 +1,13 @@
 'use client';
 
-import { cloneElement, isValidElement, useEffect, useId, type ReactElement } from 'react';
+import {
+  cloneElement,
+  isValidElement,
+  useEffect,
+  useId,
+  type ReactElement,
+  type ReactNode,
+} from 'react';
 
 interface FieldControlProps {
   id?: string;
@@ -11,7 +18,14 @@ interface FieldControlProps {
 interface FormFieldProps {
   label: string;
   error?: string;
-  hint?: string;
+  /**
+   * A plain string for the common case; a caller needing its own inline
+   * styling (e.g. a character counter that recolors at its limit) can pass
+   * a node instead -- the wrapping <p>'s own text-xs/text-ink-subtle still
+   * applies as the default, a child element's own color class overrides it
+   * exactly where that child sets one.
+   */
+  hint?: ReactNode;
   children: ReactElement<FieldControlProps>;
 }
 

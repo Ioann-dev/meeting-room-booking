@@ -5,12 +5,21 @@ import { usePathname } from 'next/navigation';
 import { useRef, useState } from 'react';
 import type { CurrentUser } from 'shared';
 import { cn } from '@/lib/cn';
+import { Skeleton } from '@/components/ui/skeleton';
 import { MobileNav } from './mobile-nav';
 import { NotificationBell } from './notification-bell';
 import { UserMenu } from './user-menu';
 
 interface AppHeaderProps {
-  user: CurrentUser;
+  /**
+   * Null while the session is still bootstrapping (AppShell renders this
+   * header immediately, before the current user resolves, so the shell --
+   * wordmark, nav, timezone banner -- is never missing during that brief
+   * window). The wordmark and nav links are static and render identically
+   * either way; only the user-specific controls (bell, avatar/menu, mobile
+   * sheet trigger) fall back to placeholders until a real user lands.
+   */
+  user: CurrentUser | null;
   onLoggedOut: () => void;
 }
 
@@ -54,8 +63,17 @@ export function AppHeader({ user, onLoggedOut }: AppHeaderProps) {
         </div>
 
         <div className="hidden items-center gap-1 md:flex">
-          <NotificationBell />
-          <UserMenu user={user} onLoggedOut={onLoggedOut} />
+          {user ? (
+            <>
+              <NotificationBell />
+              <UserMenu user={user} onLoggedOut={onLoggedOut} />
+            </>
+          ) : (
+            <>
+              <Skeleton className="h-9 w-9" />
+              <Skeleton className="ml-2 h-8 w-24" />
+            </>
+          )}
         </div>
 
         {/* Mobile-only: the desktop cluster above (NotificationBell +
@@ -66,13 +84,14 @@ export function AppHeader({ user, onLoggedOut }: AppHeaderProps) {
             desktop users get. Reuses the exact same component/popover,
             not a second mobile-specific implementation. */}
         <div className="flex items-center gap-1 md:hidden">
-          <NotificationBell />
+          {user && <NotificationBell />}
           <button
             ref={mobileNavTriggerRef}
             type="button"
             onClick={() => setMobileNavOpen(true)}
+            disabled={!user}
             aria-label="Open menu"
-            className="rounded-md p-3 text-ink-muted hover:bg-canvas hover:text-ink"
+            className="rounded-md p-3 text-ink-muted hover:bg-canvas hover:text-ink disabled:cursor-not-allowed disabled:opacity-60"
           >
             <svg viewBox="0 0 20 20" fill="none" aria-hidden="true" className="h-5 w-5">
               <path
@@ -86,13 +105,15 @@ export function AppHeader({ user, onLoggedOut }: AppHeaderProps) {
         </div>
       </div>
 
-      <MobileNav
-        open={mobileNavOpen}
-        onOpenChange={setMobileNavOpen}
-        user={user}
-        onLoggedOut={onLoggedOut}
-        triggerRef={mobileNavTriggerRef}
-      />
+      {user && (
+        <MobileNav
+          open={mobileNavOpen}
+          onOpenChange={setMobileNavOpen}
+          user={user}
+          onLoggedOut={onLoggedOut}
+          triggerRef={mobileNavTriggerRef}
+        />
+      )}
     </header>
   );
 }

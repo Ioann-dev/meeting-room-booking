@@ -14,6 +14,7 @@ import {
   type OfficeWeek,
   type RoomSummary,
 } from 'shared';
+import { cn } from '@/lib/cn';
 import { Alert } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Dialog } from '@/components/ui/dialog';
@@ -303,7 +304,28 @@ function BookingCreateForm({
         </p>
       )}
 
-      <FormField label="Title" error={fieldErrors.title}>
+      {/* The native maxLength below silently clips anything typed or pasted
+          past the limit with zero visual feedback -- this counter is what
+          lets a user notice a long pasted title got cut short instead of
+          only discovering the mangled result later in the schedule grid.
+          Reaching the cap isn't an error (the title is still valid at
+          exactly 100 chars), so it recolors to the Warning token, not
+          Danger -- Danger stays reserved for the actual validation error
+          below (fieldErrors.title), which this hint yields to regardless. */}
+      <FormField
+        label="Title"
+        error={fieldErrors.title}
+        hint={
+          <span
+            className={cn(
+              'tabular-nums',
+              title.length >= BOOKING_TITLE_MAX_LENGTH && 'font-medium text-warning',
+            )}
+          >
+            {title.length}/{BOOKING_TITLE_MAX_LENGTH} characters
+          </span>
+        }
+      >
         <Input
           name="title"
           type="text"
