@@ -99,7 +99,7 @@ export function UpcomingSection({ displayZone }: { displayZone: string }) {
         action={
           <Link
             href="/schedule"
-            className="inline-flex items-center justify-center rounded-md border border-border bg-surface px-4 py-2 text-sm font-medium text-ink transition-colors hover:border-border-strong hover:bg-canvas"
+            className="inline-flex items-center justify-center rounded-md border border-border bg-surface px-4 py-2 text-sm font-medium text-ink transition-colors hover:border-border-strong hover:bg-surface-hover"
           >
             Browse rooms
           </Link>

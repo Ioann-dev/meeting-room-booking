@@ -54,7 +54,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
           <div
             key={toast.id}
             className={cn(
-              'rounded-md border px-4 py-2.5 text-sm shadow-md',
+              'rounded-md border px-4 py-2.5 text-sm shadow-lg',
               VARIANT_CLASSES[toast.variant],
             )}
           >

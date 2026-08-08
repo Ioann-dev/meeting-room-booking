@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { OFFICE_TIMEZONE, toZonedParts } from 'shared';
+import { cn } from '@/lib/cn';
 import { Popover } from '@/components/ui/popover';
 import { useNotifications } from '@/hooks/use-notifications';
 import { useUserTimeZone } from '@/hooks/use-user-time-zone';
@@ -67,7 +68,7 @@ export function NotificationBell() {
           aria-haspopup="dialog"
           aria-expanded={open}
           aria-label={unreadCount > 0 ? `Notifications, ${unreadCount} unread` : 'Notifications'}
-          className="relative rounded-md p-3 text-ink-muted transition-colors hover:bg-canvas hover:text-ink md:p-2"
+          className="relative rounded-md p-3 text-ink-muted transition-colors hover:bg-surface-hover hover:text-ink md:p-2"
         >
           <BellIcon />
           {unreadCount > 0 && (
@@ -85,18 +86,43 @@ export function NotificationBell() {
         Notifications
       </p>
       {items.length === 0 ? (
-        <p className="px-2 py-4 text-center text-sm text-ink-subtle">No notifications yet</p>
+        <div className="flex flex-col items-center gap-2 px-2 py-8 text-center">
+          <span
+            aria-hidden="true"
+            className="flex h-9 w-9 items-center justify-center rounded-full bg-surface-muted text-ink-faint"
+          >
+            <BellIcon />
+          </span>
+          <p className="text-sm text-ink-subtle">No notifications yet</p>
+        </div>
       ) : (
-        <ul className="flex max-h-80 flex-col gap-1 overflow-y-auto">
+        <ul className="flex max-h-80 flex-col gap-0.5 overflow-y-auto">
           {items.map((item) => (
-            <li key={item.id} className="rounded-md px-2 py-2 text-sm">
-              <p className="text-ink">
-                Your booking &quot;{item.endingBookingTitle}&quot; in {item.roomName} ends soon --
-                the next slot is booked.
-              </p>
-              <p className="mt-0.5 tabular-nums text-xs text-ink-faint">
-                {formatNotificationTime(item.endingBookingEndAt, displayZone)}
-              </p>
+            <li
+              key={item.id}
+              className="flex gap-2.5 rounded-md px-2 py-2.5 text-sm transition-colors hover:bg-surface-muted"
+            >
+              {/* Marks which items were unread as of this popover's last
+                  fetch -- markAllRead() is optimistic/local-only (see
+                  useNotifications) and never refetches while the panel is
+                  open, so item.readAt still reflects real pre-open state
+                  rather than flipping every dot off the instant it opens. */}
+              <span
+                aria-hidden="true"
+                className={cn(
+                  'mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full',
+                  item.readAt === null ? 'bg-accent' : 'bg-transparent',
+                )}
+              />
+              <div className="min-w-0">
+                <p className="text-ink">
+                  Your booking &quot;{item.endingBookingTitle}&quot; in {item.roomName} ends soon --
+                  the next slot is booked.
+                </p>
+                <p className="mt-0.5 tabular-nums text-xs text-ink-faint">
+                  {formatNotificationTime(item.endingBookingEndAt, displayZone)}
+                </p>
+              </div>
             </li>
           ))}
         </ul>

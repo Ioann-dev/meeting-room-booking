@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import type { BookingSummary } from 'shared';
+import { cn } from '@/lib/cn';
 import { Button } from '@/components/ui/button';
 import { Dialog } from '@/components/ui/dialog';
 import { BookingCancelPanel, type CancelScope } from '@/components/booking/booking-cancel-panel';
@@ -67,6 +68,34 @@ function BookingDetailContent({
 
   return (
     <div className="flex flex-col gap-4">
+      {/* Ownership stated up front, as a badge rather than a third dl row --
+          it's the single fact this dialog exists to disambiguate (whose
+          booking is this), so it earns top billing alongside the title
+          instead of competing for attention with Booked-by/Time further
+          down. Icon + label + tint, the same non-color-alone signal the
+          schedule grid's own booking blocks use for the identical fact. */}
+      <div
+        className={cn(
+          'inline-flex w-fit items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium',
+          booking.isOwnBooking
+            ? 'bg-accent-tint text-accent-strong'
+            : 'bg-surface-muted text-ink-subtle',
+        )}
+      >
+        {booking.isOwnBooking && (
+          <svg viewBox="0 0 16 16" fill="none" aria-hidden="true" className="h-3 w-3">
+            <path
+              d="M3 8.5 6.2 11.5 13 4.5"
+              stroke="currentColor"
+              strokeWidth="1.8"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
+        )}
+        {booking.isOwnBooking ? 'Your booking' : "Another attendee's booking"}
+      </div>
+
       <dl className="flex flex-col gap-3 text-sm">
         <div className="flex items-center justify-between gap-4">
           <dt className="text-ink-subtle">Booked by</dt>
@@ -89,14 +118,23 @@ function BookingDetailContent({
             )}
           </dd>
         </div>
-        <div className="flex items-center justify-between gap-4">
-          <dt className="text-ink-subtle">Ownership</dt>
-          <dd className="font-medium text-ink">
-            {booking.isOwnBooking ? 'Your booking' : "Another attendee's booking"}
-          </dd>
-        </div>
         {booking.seriesId && (
-          <p className="rounded-md bg-canvas px-3 py-2 text-xs text-ink-subtle">
+          <p className="flex items-center gap-1.5 rounded-md bg-surface-muted px-3 py-2 text-xs text-ink-subtle">
+            <svg viewBox="0 0 14 14" fill="none" aria-hidden="true" className="h-3 w-3 shrink-0">
+              <path
+                d="M2.5 7a4.5 4.5 0 0 1 7.6-3.25M11.5 7a4.5 4.5 0 0 1-7.6 3.25"
+                stroke="currentColor"
+                strokeWidth="1.2"
+                strokeLinecap="round"
+              />
+              <path
+                d="M10.6 2.9v1.85H8.75M3.4 11.1V9.25h1.85"
+                stroke="currentColor"
+                strokeWidth="1.2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
             Part of a recurring booking.
           </p>
         )}

@@ -31,10 +31,10 @@ export function MyBookingsView() {
   }
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="mx-auto flex w-full max-w-4xl flex-col gap-7">
       <div>
-        <h1 className="text-xl font-semibold text-ink">My Bookings</h1>
-        <p className="mt-1 text-sm text-ink-subtle">Your upcoming and past room bookings.</p>
+        <h1 className="text-2xl font-semibold tracking-tight text-ink">My Bookings</h1>
+        <p className="mt-1.5 text-sm text-ink-subtle">Your upcoming and past room bookings.</p>
       </div>
       <Tabs
         label="My bookings sections"

@@ -296,7 +296,7 @@ export function WeeklyGrid({
                 <tr>
                   <th
                     scope="col"
-                    className="sticky top-0 z-10 w-16 border-b border-r border-border bg-surface p-0 text-left text-[11px] font-medium uppercase tracking-wide text-ink-subtle"
+                    className="sticky top-0 z-10 w-16 border-b border-r border-border bg-surface-muted p-0 text-left text-[11px] font-medium uppercase tracking-wide text-ink-subtle"
                   >
                     {/* min-h-14 matches the day-header table's own header row height
                     exactly: p-2 (1rem vertical) + 3 leading-none text lines
@@ -408,8 +408,19 @@ export function WeeklyGrid({
                         // a horizontally-swipeable single-day view; at sm:
                         // and above this reverts to the existing fixed
                         // narrow-column desktop density unchanged.
-                        'sticky top-0 z-10 w-[var(--day-col-width,20rem)] min-w-[var(--day-col-width,20rem)] border-b border-border bg-surface p-2 text-left align-top sm:w-auto sm:min-w-[6.5rem]',
-                        dayIndex === todayDayIndex && 'bg-accent-tint/60',
+                        //
+                        // The background is a ternary, not two co-applied
+                        // `bg-*` classes: `cn()` is a plain string join with
+                        // no same-property conflict resolution (no
+                        // tailwind-merge), so two simultaneous `bg-*`
+                        // utilities are decided by the generated stylesheet's
+                        // own rule order, not by which class appears later
+                        // in this string -- silently dropping the intended
+                        // today-column tint. Making the two backgrounds
+                        // mutually exclusive removes the conflict by
+                        // construction instead of depending on class order.
+                        'sticky top-0 z-10 w-[var(--day-col-width,20rem)] min-w-[var(--day-col-width,20rem)] border-b border-border p-2 text-left align-top sm:w-auto sm:min-w-[6.5rem]',
+                        dayIndex === todayDayIndex ? 'bg-accent-tint' : 'bg-surface-muted',
                       )}
                     >
                       <span className="block text-[11px] font-medium uppercase tracking-wide text-ink-subtle leading-none">
@@ -427,7 +438,7 @@ export function WeeklyGrid({
                       <span
                         aria-hidden={dayIndex !== todayDayIndex}
                         className={cn(
-                          'mt-0.5 block text-[11px] font-medium leading-none text-accent-strong',
+                          'mt-0.5 block text-[11px] font-semibold leading-none text-accent-strong',
                           dayIndex === todayDayIndex ? 'visible' : 'invisible',
                         )}
                       >

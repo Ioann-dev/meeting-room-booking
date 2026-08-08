@@ -14,6 +14,7 @@ import { Button } from '@/components/ui/button';
 import { FormField } from '@/components/ui/form-field';
 import { Input } from '@/components/ui/input';
 import { Spinner } from '@/components/ui/spinner';
+import { WordmarkIcon } from '@/components/shell/app-header';
 import { useCurrentUser } from '@/hooks/use-current-user';
 import { ApiError } from '@/lib/api-error';
 import { register } from '@/lib/auth-client';
@@ -131,15 +132,16 @@ export default function RegisterPage() {
   }
 
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center gap-8 px-4 py-12">
-      <Link href="/" className="text-sm font-semibold tracking-tight text-ink">
-        Meeting Rooms
+    <main className="flex min-h-screen flex-col items-center justify-center gap-8 bg-canvas px-4 py-12">
+      <Link href="/" className="flex items-center gap-2.5">
+        <WordmarkIcon />
+        <span className="text-sm font-semibold tracking-tight text-ink">Meeting Rooms</span>
       </Link>
 
-      <div className="w-full max-w-sm rounded-lg border border-border bg-surface p-8">
+      <div className="w-full max-w-[26rem] rounded-lg border border-border bg-surface p-8 shadow-sm">
         <div className="mb-6">
-          <h1 className="text-lg font-semibold text-ink">Create your account</h1>
-          <p className="mt-1 text-sm text-ink-subtle">
+          <h1 className="text-2xl font-semibold tracking-tight text-ink">Create your account</h1>
+          <p className="mt-1.5 text-sm text-ink-subtle">
             Already have an account?{' '}
             <Link href="/login" className="font-medium text-accent hover:text-accent-strong">
               Log in

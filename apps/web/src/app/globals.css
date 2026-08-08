@@ -7,9 +7,14 @@
  * indigo/purple scale.
  */
 @theme {
-  /* Surfaces */
+  /* Surfaces: a five-step tonal ladder (canvas -> muted -> surface -> hover
+     -> accent-tint) rather than the previous two-tone canvas/surface pair,
+     so dense chrome (sticky headers, rails, toolbars) can sit one step
+     above the page without introducing a border or shadow to do it. */
   --color-canvas: #f6f7f7;
+  --color-surface-muted: #fbfbfb;
   --color-surface: #ffffff;
+  --color-surface-hover: #eef0f0;
 
   /* Ink (warm-neutral slate, not pure blue-gray). ink-subtle and
      ink-faint are darkened from their original values: measured against
@@ -56,9 +61,14 @@
   --radius-md: 0.375rem;
   --radius-lg: 0.625rem;
 
-  /* Shadows: reserved for genuinely elevated layers (menus, dialogs, toasts) */
+  /* Shadows: reserved for genuinely elevated layers (menus, dialogs, toasts).
+     Three tiers now instead of two -- ambient stays the resting-card lift,
+     lg is reserved for floating chrome (popovers, dropdown menus) that
+     benefits from reading as slightly more detached than a dialog sitting
+     in the page's own flow, md remains the dialog/toast tier. */
   --shadow-sm: 0 1px 2px 0 rgb(15 23 32 / 0.06);
   --shadow-md: 0 8px 24px -4px rgb(15 23 32 / 0.16), 0 2px 6px -2px rgb(15 23 32 / 0.08);
+  --shadow-lg: 0 16px 40px -8px rgb(15 23 32 / 0.18), 0 4px 12px -2px rgb(15 23 32 / 0.1);
 
   /* Focus ring */
   --color-focus-ring: var(--color-accent);
@@ -89,6 +99,11 @@
   /* Numeric/time data reads more consistently with tabular figures. */
   .tabular-nums {
     font-variant-numeric: tabular-nums;
+  }
+
+  ::selection {
+    background-color: var(--color-accent-tint);
+    color: var(--color-accent-strong);
   }
 }
 

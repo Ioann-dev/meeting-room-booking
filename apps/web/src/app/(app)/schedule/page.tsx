@@ -82,10 +82,10 @@ export default function SchedulePage() {
   }
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="mx-auto flex w-full max-w-7xl flex-col gap-8">
       <div>
-        <h1 className="text-xl font-semibold text-ink">Rooms</h1>
-        <p className="mt-1 text-sm text-ink-subtle">
+        <h1 className="text-2xl font-semibold tracking-tight text-ink">Rooms</h1>
+        <p className="mt-1.5 text-sm text-ink-subtle">
           Browse the meeting rooms available across the office.
         </p>
       </div>
@@ -95,7 +95,7 @@ export default function SchedulePage() {
       {loading && (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {Array.from({ length: SKELETON_COUNT }, (_, index) => (
-            <Skeleton key={index} className="h-24" />
+            <Skeleton key={index} className="h-32" />
           ))}
         </div>
       )}

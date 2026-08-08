@@ -6,6 +6,7 @@ import { useRef, useState } from 'react';
 import type { CurrentUser } from 'shared';
 import { cn } from '@/lib/cn';
 import { Skeleton } from '@/components/ui/skeleton';
+import { OfficeZoneNotice } from '@/components/office-zone-notice';
 import { MobileNav } from './mobile-nav';
 import { NotificationBell } from './notification-bell';
 import { UserMenu } from './user-menu';
@@ -28,19 +29,44 @@ const NAV_ITEMS = [
   { href: '/my-bookings', label: 'My Bookings' },
 ] as const;
 
+export function WordmarkIcon() {
+  return (
+    <span
+      aria-hidden="true"
+      className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-accent-tint text-accent-strong"
+    >
+      <svg viewBox="0 0 16 16" fill="none" className="h-4 w-4">
+        <rect
+          x="2"
+          y="2.5"
+          width="12"
+          height="11"
+          rx="1.5"
+          stroke="currentColor"
+          strokeWidth="1.3"
+        />
+        <path d="M2 6h12" stroke="currentColor" strokeWidth="1.3" />
+        <path d="M5.5 2v2M10.5 2v2" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
+        <rect x="4.25" y="8" width="2" height="2" rx="0.4" fill="currentColor" />
+      </svg>
+    </span>
+  );
+}
+
 export function AppHeader({ user, onLoggedOut }: AppHeaderProps) {
   const pathname = usePathname();
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const mobileNavTriggerRef = useRef<HTMLButtonElement>(null);
 
   return (
-    <header className="border-b border-border bg-surface">
-      <div className="mx-auto flex h-16 w-full max-w-6xl items-center justify-between gap-4 px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center gap-8">
-          <Link href="/schedule" className="text-sm font-semibold tracking-tight text-ink">
-            Meeting Rooms
+    <header className="sticky top-0 z-30 border-b border-border bg-surface">
+      <div className="mx-auto flex h-16 w-full max-w-7xl items-center justify-between gap-4 px-4 sm:px-6 lg:px-8">
+        <div className="flex h-full items-center gap-8">
+          <Link href="/schedule" className="flex shrink-0 items-center gap-2.5">
+            <WordmarkIcon />
+            <span className="text-sm font-semibold tracking-tight text-ink">Meeting Rooms</span>
           </Link>
-          <nav aria-label="Primary" className="hidden items-center gap-1 md:flex">
+          <nav aria-label="Primary" className="hidden h-full items-center gap-1 md:flex">
             {NAV_ITEMS.map((item) => {
               const active = pathname === item.href;
               return (
@@ -49,10 +75,10 @@ export function AppHeader({ user, onLoggedOut }: AppHeaderProps) {
                   href={item.href}
                   aria-current={active ? 'page' : undefined}
                   className={cn(
-                    'rounded-md px-3 py-2 text-sm transition-colors',
+                    'flex h-full items-center border-b-2 px-1 text-sm transition-colors',
                     active
-                      ? 'font-semibold text-accent'
-                      : 'font-medium text-ink-muted hover:text-ink',
+                      ? 'border-accent font-semibold text-ink'
+                      : 'border-transparent font-medium text-ink-muted hover:text-ink',
                   )}
                 >
                   {item.label}
@@ -62,7 +88,7 @@ export function AppHeader({ user, onLoggedOut }: AppHeaderProps) {
           </nav>
         </div>
 
-        <div className="hidden items-center gap-1 md:flex">
+        <div className="hidden items-center gap-2 md:flex">
           {user ? (
             <>
               <NotificationBell />
@@ -91,7 +117,7 @@ export function AppHeader({ user, onLoggedOut }: AppHeaderProps) {
             onClick={() => setMobileNavOpen(true)}
             disabled={!user}
             aria-label="Open menu"
-            className="rounded-md p-3 text-ink-muted hover:bg-canvas hover:text-ink disabled:cursor-not-allowed disabled:opacity-60"
+            className="rounded-md p-3 text-ink-muted transition-colors hover:bg-surface-hover hover:text-ink disabled:cursor-not-allowed disabled:opacity-60"
           >
             <svg viewBox="0 0 20 20" fill="none" aria-hidden="true" className="h-5 w-5">
               <path
@@ -104,6 +130,8 @@ export function AppHeader({ user, onLoggedOut }: AppHeaderProps) {
           </button>
         </div>
       </div>
+
+      <OfficeZoneNotice />
 
       {user && (
         <MobileNav

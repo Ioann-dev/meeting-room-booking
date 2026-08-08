@@ -9,7 +9,7 @@ interface CapacityFilterProps {
 
 export function CapacityFilter({ value, onChange }: CapacityFilterProps) {
   return (
-    <div className="flex flex-wrap items-end gap-3">
+    <div className="flex flex-wrap items-end gap-3 rounded-lg border border-border bg-surface-muted px-4 py-3.5">
       <div className="w-40">
         <FormField label="Minimum capacity" hint="Rooms that fit at least this many people">
           <Input

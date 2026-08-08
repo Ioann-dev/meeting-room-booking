@@ -62,7 +62,7 @@ export function MobileNav({ open, onOpenChange, user, onLoggedOut, triggerRef }:
             <RadixDialog.Title className="text-sm font-semibold text-ink">Menu</RadixDialog.Title>
             <RadixDialog.Close
               aria-label="Close menu"
-              className="flex h-11 w-11 items-center justify-center rounded-md text-ink-muted hover:bg-canvas hover:text-ink"
+              className="flex h-11 w-11 items-center justify-center rounded-md text-ink-muted hover:bg-surface-hover hover:text-ink"
             >
               <svg viewBox="0 0 20 20" fill="none" aria-hidden="true" className="h-5 w-5">
                 <path

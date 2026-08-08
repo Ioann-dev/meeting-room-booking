@@ -93,7 +93,7 @@ export function Dialog({
                   the current desktop density. */}
               <RadixDialog.Close
                 aria-label="Close"
-                className="-mr-2 -mt-2 flex h-11 w-11 shrink-0 items-center justify-center rounded-md text-ink-muted transition-colors hover:bg-canvas hover:text-ink md:h-9 md:w-9"
+                className="-mr-2 -mt-2 flex h-11 w-11 shrink-0 items-center justify-center rounded-md text-ink-muted transition-colors hover:bg-surface-hover hover:text-ink md:h-9 md:w-9"
               >
                 <svg viewBox="0 0 20 20" fill="none" aria-hidden="true" className="h-5 w-5">
                   <path

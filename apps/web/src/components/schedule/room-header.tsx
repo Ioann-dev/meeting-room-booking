@@ -17,7 +17,7 @@ export function RoomHeader({ room, onBook }: RoomHeaderProps) {
         >
           ← All rooms
         </Link>
-        <h1 className="mt-1 text-xl font-semibold text-ink">{room.name}</h1>
+        <h1 className="mt-1 text-2xl font-semibold tracking-tight text-ink">{room.name}</h1>
       </div>
       {/* items-end, not items-center: bottom-aligns the metadata text
           against the button's own bottom edge rather than its vertical
@@ -30,6 +30,14 @@ export function RoomHeader({ room, onBook }: RoomHeaderProps) {
           Floor {room.floor} · Seats <span className="tabular-nums">{room.capacity}</span>
         </p>
         <Button type="button" onClick={(event) => onBook(event.currentTarget)}>
+          <svg viewBox="0 0 16 16" fill="none" aria-hidden="true" className="h-4 w-4">
+            <path
+              d="M8 3.5v9M3.5 8h9"
+              stroke="currentColor"
+              strokeWidth="1.6"
+              strokeLinecap="round"
+            />
+          </svg>
           Book a room
         </Button>
       </div>

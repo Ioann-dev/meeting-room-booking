@@ -298,7 +298,22 @@ function BookingCreateForm({
       </div>
 
       {displayZone !== OFFICE_TIMEZONE && (
-        <p className="text-xs text-ink-subtle">
+        <p className="flex items-start gap-1.5 rounded-md bg-surface-muted px-3 py-2 text-xs text-ink-subtle">
+          <svg
+            viewBox="0 0 16 16"
+            fill="none"
+            aria-hidden="true"
+            className="mt-0.5 h-3.5 w-3.5 shrink-0 text-ink-faint"
+          >
+            <circle cx="8" cy="8" r="6.25" stroke="currentColor" strokeWidth="1.2" />
+            <path
+              d="M8 4.5V8l2.5 1.5"
+              stroke="currentColor"
+              strokeWidth="1.2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
           Times above are shown in your local zone; the Kyiv office-hours equivalent is noted next
           to each option.
         </p>
@@ -338,10 +353,15 @@ function BookingCreateForm({
       {/* py-3/md:py-2.5: same touch-target treatment as Input/Select/Button
           below md: -- the checkbox itself is small, but this label is the
           whole clickable/tappable row. */}
-      <label className="flex items-center gap-2 py-3 text-sm text-ink md:py-2.5">
+      <label className="flex items-center gap-2.5 rounded-md border border-border bg-surface px-3 py-3 text-sm text-ink transition-colors hover:border-border-strong md:py-2.5">
         <input
           type="checkbox"
-          className="h-4 w-4 rounded border-border text-accent"
+          // `text-accent` alone only sets `color`, which a native checkbox's
+          // own fill/checkmark glyph doesn't read -- Chromium tints those
+          // from the `accent-color` CSS property instead, so without
+          // `accent-accent` this rendered as a stock browser-blue checkbox
+          // inside an otherwise fully teal-branded, near-monochrome system.
+          className="h-4 w-4 rounded border-border text-accent accent-accent"
           checked={recurrenceEnabled}
           onChange={(event) => setRecurrenceEnabled(event.target.checked)}
         />

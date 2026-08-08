@@ -6,7 +6,6 @@ import { useCurrentUser } from '@/hooks/use-current-user';
 import { UserTimeZoneProvider } from '@/hooks/use-user-time-zone';
 import { ErrorState } from '@/components/ui/error-state';
 import { Spinner } from '@/components/ui/spinner';
-import { OfficeZoneNotice } from '@/components/office-zone-notice';
 import { AppHeader } from './app-header';
 
 type HealthState = 'checking' | 'ok' | 'error';
@@ -91,16 +90,17 @@ export function AppShell({ children }: { children: ReactNode }) {
           Skip to content
         </a>
         <AppHeader user={user} onLoggedOut={clearUser} />
+        {/* No max-width here: the shell hands each page the full available
+            canvas (up to a very wide sanity ceiling for ultra-wide
+            monitors) and lets the page itself decide how much of it to
+            use -- a dense grid (Schedule) claims most of it, a scanning
+            list or form (Rooms, My Bookings) settles for less, the same
+            way the header's own contained width stays fixed regardless. */}
         <main
           id="main-content"
-          className="mx-auto w-full max-w-6xl flex-1 px-4 py-8 sm:px-6 lg:px-8"
+          className="mx-auto w-full max-w-[100rem] flex-1 px-4 py-8 sm:px-6 sm:py-10 lg:px-8"
         >
-          <OfficeZoneNotice />
-          {/* mt-3, not mt-6: OfficeZoneNotice is now a single compact text
-              line rather than a bordered Alert box, so the trailing space
-              before page content only needs to be proportionate to that
-              smaller footprint. */}
-          <div className="mt-3 first:mt-0">{isLoadingShell ? <ContentLoading /> : children}</div>
+          {isLoadingShell ? <ContentLoading /> : children}
         </main>
       </div>
     </UserTimeZoneProvider>
