@@ -16,7 +16,7 @@ export function RoomCard({ room }: { room: RoomSummary }) {
       // shadow-sm at rest, stepping up to a deeper, more premium shadow +
       // a slightly punchier lift on hover (visual-polish pass) -- still
       // restrained, not overlay-strength.
-      className="group relative flex h-full flex-col gap-5 overflow-hidden rounded-lg border border-border bg-surface p-5 shadow-sm transition-[background-color,border-color,box-shadow,transform] duration-200 hover:-translate-y-1 hover:border-border-strong hover:shadow-[0_14px_28px_-8px_rgb(15_23_32_/_0.2)]"
+      className="group relative flex h-full flex-col gap-5 overflow-hidden rounded-lg border border-border bg-surface p-6 shadow-sm transition-[background-color,border-color,box-shadow,transform] duration-200 ease-premium hover:-translate-y-1 hover:border-border-strong hover:shadow-[0_14px_28px_-8px_rgb(15_23_32_/_0.2)]"
       // The three stacked text nodes below (name, floor, capacity) have no
       // punctuation or separators between them visually -- fine to read at
       // a glance, but their concatenated text content is what a screen
@@ -40,7 +40,7 @@ export function RoomCard({ room }: { room: RoomSummary }) {
       />
       <div aria-hidden="true" className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <p className="truncate text-base font-semibold tracking-tight text-ink">{room.name}</p>
+          <p className="truncate text-lg font-semibold tracking-tight text-ink">{room.name}</p>
           <p className="mt-1 text-xs font-medium uppercase tracking-wide text-ink-faint">
             Floor {room.floor}
           </p>
@@ -53,7 +53,7 @@ export function RoomCard({ room }: { room: RoomSummary }) {
         <svg
           viewBox="0 0 16 16"
           fill="none"
-          className="mt-0.5 h-4 w-4 shrink-0 -translate-x-1 text-ink-faint opacity-0 transition-[transform,opacity] duration-200 group-hover:translate-x-0 group-hover:opacity-100 group-focus-visible:translate-x-0 group-focus-visible:opacity-100"
+          className="mt-0.5 h-4 w-4 shrink-0 -translate-x-1 text-ink-faint opacity-0 transition-[transform,opacity] duration-200 ease-premium group-hover:translate-x-0 group-hover:opacity-100 group-focus-visible:translate-x-0 group-focus-visible:opacity-100"
         >
           <path
             d="M6 3.5 10.5 8 6 12.5"
@@ -64,7 +64,13 @@ export function RoomCard({ room }: { room: RoomSummary }) {
           />
         </svg>
       </div>
-      <div aria-hidden="true" className="mt-auto flex items-center gap-1.5 text-sm text-ink-muted">
+      {/* A small chip, not bare inline text -- matches RoomHeader's
+          metadata-pill treatment so a room's capacity reads the same way
+          whether it's on the card or the room's own schedule page. */}
+      <div
+        aria-hidden="true"
+        className="mt-auto flex w-fit items-center gap-1.5 rounded-full bg-surface-soft py-1 pl-1.5 pr-2.5 text-sm text-ink-muted"
+      >
         <svg viewBox="0 0 20 20" fill="none" className="h-4 w-4 text-ink-faint">
           <path
             d="M10 10a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z"

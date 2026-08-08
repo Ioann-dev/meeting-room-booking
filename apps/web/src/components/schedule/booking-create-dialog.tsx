@@ -353,7 +353,7 @@ function BookingCreateForm({
       {/* py-3/md:py-2.5: same touch-target treatment as Input/Select/Button
           below md: -- the checkbox itself is small, but this label is the
           whole clickable/tappable row. */}
-      <label className="flex items-center gap-2.5 rounded-md border border-border bg-surface px-3 py-3 text-sm text-ink transition-colors hover:border-border-strong md:py-2.5">
+      <label className="flex items-center gap-2.5 rounded-md border border-border bg-surface px-3 py-3 text-sm text-ink transition-colors duration-150 ease-premium hover:border-border-strong md:py-2.5">
         <input
           type="checkbox"
           // `text-accent` alone only sets `color`, which a native checkbox's

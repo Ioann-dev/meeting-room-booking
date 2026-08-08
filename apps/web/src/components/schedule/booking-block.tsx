@@ -4,6 +4,7 @@ import type { CSSProperties } from 'react';
 import type { BookingSummary } from 'shared';
 import { cn } from '@/lib/cn';
 import { paletteForId } from '@/lib/event-palette';
+import { CurrentTimeMark } from './current-time-mark';
 
 interface BookingBlockProps {
   booking: BookingSummary;
@@ -76,9 +77,18 @@ export function BookingBlock({
         // through at each corner. `w-full`/height still come from the
         // grid track itself (this button fills its cell), so the inset
         // costs 2px total, not a second, hand-tuned size.
-        'group relative m-px flex flex-col items-start overflow-hidden rounded-[7px] border-l-[3px] text-left transition-[transform,box-shadow] duration-150',
+        'group relative m-px flex flex-col items-start overflow-hidden rounded-[7px] border-l-[3px] text-left transition-[transform,box-shadow] duration-150 ease-premium',
         rowSpan === 1 ? 'gap-0 px-[7px] py-[5px]' : 'gap-0.5 px-[9px] py-[7px]',
-        'hover:z-20 hover:-translate-y-px hover:shadow-[0_4px_12px_rgba(20,24,40,.12)]',
+        'hover:z-20 hover:-translate-y-0.5 hover:shadow-[0_6px_16px_rgba(20,24,40,.16)]',
+        // A brief scale+fade entrance on mount, not on every re-render --
+        // this coordinate only ever remounts a fresh BookingBlock when a
+        // slot genuinely transitions from empty to booked (SlotCell and
+        // BookingBlock are different component types at the same grid
+        // key, so React unmounts/mounts rather than patching in place),
+        // which means a just-created booking gets a small "arrival"
+        // animation for free, satisfying the "highlight after a
+        // successful booking" microinteraction without any extra state.
+        'animate-[premium-card-in_220ms_var(--ease-premium)]',
         // The global :focus-visible ring draws with a positive 2px
         // outline-offset, which lands entirely outside this button's own
         // box -- and this button is deliberately overflow-hidden (to clip
@@ -137,13 +147,7 @@ export function BookingBlock({
           {startLabel}–{endLabel}
         </span>
       )}
-      {currentTimeFraction !== undefined && (
-        <div
-          aria-hidden="true"
-          className="pointer-events-none absolute inset-x-0 z-10 border-t-2 border-current-time"
-          style={{ top: `${currentTimeFraction * 100}%` }}
-        />
-      )}
+      {currentTimeFraction !== undefined && <CurrentTimeMark fraction={currentTimeFraction} />}
     </button>
   );
 }

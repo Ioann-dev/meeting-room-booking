@@ -2,6 +2,7 @@
 
 import type { CSSProperties } from 'react';
 import { cn } from '@/lib/cn';
+import { CurrentTimeMark } from './current-time-mark';
 
 interface SlotCellProps {
   isPast: boolean;
@@ -33,13 +34,7 @@ export function SlotCell({
     // as the most prominent things on the grid.
     return (
       <div aria-hidden="true" className="relative bg-surface-soft" style={position}>
-        {currentTimeFraction !== undefined && (
-          <div
-            aria-hidden="true"
-            className="pointer-events-none absolute inset-x-0 z-10 border-t-2 border-current-time"
-            style={{ top: `${currentTimeFraction * 100}%` }}
-          />
-        )}
+        {currentTimeFraction !== undefined && <CurrentTimeMark fraction={currentTimeFraction} />}
       </div>
     );
   }
@@ -52,19 +47,13 @@ export function SlotCell({
         aria-label={`Select ${label}`}
         aria-pressed={isSelected}
         className={cn(
-          'block h-full w-full transition-colors',
+          'block h-full w-full transition-colors duration-150 ease-premium',
           isSelected
             ? 'bg-primary-soft ring-1 ring-inset ring-primary'
-            : 'hover:bg-primary-soft/60',
+            : 'hover:bg-primary-soft/60 hover:ring-1 hover:ring-inset hover:ring-primary/30',
         )}
       />
-      {currentTimeFraction !== undefined && (
-        <div
-          aria-hidden="true"
-          className="pointer-events-none absolute inset-x-0 z-10 border-t-2 border-current-time"
-          style={{ top: `${currentTimeFraction * 100}%` }}
-        />
-      )}
+      {currentTimeFraction !== undefined && <CurrentTimeMark fraction={currentTimeFraction} />}
     </div>
   );
 }

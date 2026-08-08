@@ -35,8 +35,17 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
       className={cn(
         // py-3 (44px) below md: matches this app's established touch-target
         // bar (see SlotCell/BookingBlock's min-h-11/md:min-h-8); md:py-2
-        // restores the current 36px desktop density unchanged.
-        'inline-flex items-center justify-center gap-2 rounded-md px-4 py-3 text-sm font-medium transition-colors md:py-2',
+        // restores the current 36px desktop density unchanged. Transition
+        // covers color/shadow/transform together (not just transition-
+        // colors) so the shadow shift on hover and the press-scale below
+        // both animate smoothly on the same premium easing curve instead
+        // of snapping instantly.
+        'inline-flex items-center justify-center gap-2 rounded-md px-4 py-3 text-sm font-medium transition-[background-color,border-color,color,box-shadow,transform] duration-150 ease-premium md:py-2',
+        // A small press-down scale, not just a color change -- disabled
+        // buttons keep :active inert (the disabled attribute itself
+        // prevents the pseudo-class from ever matching), so this never
+        // fires on a non-interactive button.
+        'active:scale-[0.98]',
         'disabled:cursor-not-allowed disabled:opacity-60',
         VARIANT_CLASSES[variant],
         className,

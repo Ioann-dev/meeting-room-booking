@@ -52,28 +52,36 @@ export function Dialog({
   return (
     <RadixDialog.Root open={open} onOpenChange={onOpenChange}>
       <RadixDialog.Portal>
-        <RadixDialog.Overlay className="fixed inset-0 z-40 bg-ink/40" />
+        <RadixDialog.Overlay
+          // Radix's own Presence (used internally by Overlay/Content
+          // regardless of `forceMount`) detects an in-progress CSS
+          // animation on `data-state="closed"` and delays the real unmount
+          // until it finishes -- so both directions get a real animation
+          // from plain data-state classes, no forceMount/JS coordination
+          // needed.
+          className="fixed inset-0 z-40 bg-ink/40 data-[state=closed]:animate-[premium-fade-out_180ms_var(--ease-premium)_forwards] data-[state=open]:animate-[premium-fade-in_180ms_var(--ease-premium)]"
+        />
         <RadixDialog.Content
           aria-modal="true"
           onCloseAutoFocus={onCloseAutoFocus}
           className={cn(
-            'fixed z-50 border border-border bg-surface p-6 shadow-md',
+            'fixed z-50 border border-border bg-surface p-6 shadow-lg',
             // Below sm: bottom sheet -- full width, anchored to the
             // bottom edge, capped height with its own scroll so content
             // (e.g. the booking form's full field stack) can never push
-            // past the viewport. No enter/exit animation: Radix unmounts
-            // Content immediately on close (no forceMount), so animating
-            // the close transition would need Presence-aware exit
-            // handling -- a bigger change to a primitive with existing
-            // focus-return coverage that isn't worth the risk for
-            // "nonessential" motion this late in the roadmap.
+            // past the viewport. Slides up on open, back down on close.
             'inset-x-0 bottom-0 max-h-[85dvh] overflow-y-auto rounded-t-xl',
+            'data-[state=closed]:animate-[premium-sheet-out_220ms_var(--ease-premium)_forwards] data-[state=open]:animate-[premium-sheet-in_220ms_var(--ease-premium)]',
             // sm and up: the original centered dialog, unchanged. max-w
             // widened from the default `md` (28rem/448px) to a fixed
             // 520px -- within the 500-540px premium-dialog width band --
             // and rounded-xl (16px) rather than rounded-lg (12px) to match
-            // the rest of the elevated-surface radius scale.
+            // the rest of the elevated-surface radius scale. Fades + scales
+            // + drifts up slightly on open (and the reverse on close)
+            // instead of the sheet's translateY, since a centered dialog
+            // has no natural "off-screen" edge to slide from.
             'sm:inset-auto sm:bottom-auto sm:left-1/2 sm:top-1/2 sm:max-h-none sm:w-[calc(100%-2rem)] sm:max-w-[520px] sm:-translate-x-1/2 sm:-translate-y-1/2 sm:overflow-visible sm:rounded-xl',
+            'sm:data-[state=closed]:animate-[premium-dialog-out_220ms_var(--ease-premium)_forwards] sm:data-[state=open]:animate-[premium-dialog-in_220ms_var(--ease-premium)]',
             className,
           )}
         >
@@ -97,7 +105,7 @@ export function Dialog({
                   the current desktop density. */}
               <RadixDialog.Close
                 aria-label="Close"
-                className="-mr-2 -mt-2 flex h-11 w-11 shrink-0 items-center justify-center rounded-md text-ink-muted transition-colors hover:bg-surface-hover hover:text-ink md:h-9 md:w-9"
+                className="-mr-2 -mt-2 flex h-11 w-11 shrink-0 items-center justify-center rounded-md text-ink-muted transition-colors duration-150 ease-premium hover:bg-surface-hover hover:text-ink md:h-9 md:w-9"
               >
                 <svg viewBox="0 0 20 20" fill="none" aria-hidden="true" className="h-5 w-5">
                   <path

@@ -204,7 +204,7 @@ export function WeeklyGrid({
               onClick={() => scrollToDay(dayIndex)}
               aria-current={isActive ? 'date' : undefined}
               className={cn(
-                'flex min-h-11 min-w-11 flex-col items-center justify-center rounded-md px-2.5 py-1.5 transition-colors',
+                'flex min-h-11 min-w-11 flex-col items-center justify-center rounded-md px-2.5 py-1.5 transition-colors duration-150 ease-premium',
                 isActive
                   ? 'bg-primary font-semibold text-white'
                   : 'bg-surface-soft font-medium text-ink-secondary hover:bg-surface-hover',
@@ -289,7 +289,7 @@ export function WeeklyGrid({
             // pops by contrast instead of blending into an already-tinted
             // strip (visual-polish pass; the border still marks the row
             // boundary, so nothing here affects grid geometry).
-            className="sticky left-0 top-0 z-30 flex flex-col justify-center gap-0.5 border-b-2 border-grid-line bg-surface px-2 py-2 text-left leading-none"
+            className="sticky left-0 top-0 z-30 flex flex-col justify-center gap-0.5 border-b-2 border-r-2 border-grid-line bg-surface px-2 py-2 text-left leading-none"
             style={{ gridColumn: 1, gridRow: 1 }}
           >
             <span className="text-[11px] font-bold uppercase tracking-[0.04em] text-ink-secondary">
@@ -314,11 +314,17 @@ export function WeeklyGrid({
                   dayHeaderRefs.current[dayIndex] = el;
                 }}
                 className={cn(
-                  'sticky top-0 z-20 flex flex-col justify-center border-b-2 border-grid-line px-2 py-2 text-left',
+                  'sticky top-0 z-20 flex flex-col justify-center border-b-2 px-2 py-2 text-left',
                   // Non-today headers go white (see the corner cell's
                   // comment above) so Today's violet tint is the one
-                  // colored cell in the row.
-                  isToday ? 'bg-today-header-bg' : 'bg-surface',
+                  // colored cell in the row. Today's own bottom border
+                  // switches from the neutral grid-line to the violet
+                  // today-border token too, so the column's "frame" reads
+                  // as one deliberate accent rather than a tinted fill
+                  // sitting on an otherwise-neutral boundary line.
+                  isToday
+                    ? 'border-today-border bg-today-header-bg'
+                    : 'border-grid-line bg-surface',
                 )}
                 style={{ gridColumn: dayIndex + 2, gridRow: 1 }}
               >

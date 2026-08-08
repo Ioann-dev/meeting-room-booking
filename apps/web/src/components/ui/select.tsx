@@ -14,8 +14,9 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(function Select
         className={cn(
           // Same iOS-zoom rationale as Input: text-base below md:, text-sm
           // restored at md:+. Same py-3/md:py-2 touch-target treatment too.
-          'w-full appearance-none rounded-md border border-border bg-surface px-3 py-3 pr-8 text-base text-ink transition-colors md:py-2 md:text-sm',
+          'w-full appearance-none rounded-md border border-border bg-surface px-3 py-3 pr-8 text-base text-ink transition-[border-color,box-shadow] duration-150 ease-premium md:py-2 md:text-sm',
           'hover:border-border-strong focus:border-accent',
+          'focus-visible:ring-4 focus-visible:ring-primary-soft',
           'disabled:cursor-not-allowed disabled:bg-canvas disabled:text-ink-faint',
           'aria-[invalid=true]:border-danger',
           className,

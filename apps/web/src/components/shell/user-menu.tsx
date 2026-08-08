@@ -43,7 +43,7 @@ export function UserMenu({ user, onLoggedOut }: UserMenuProps) {
   }
 
   return (
-    <div className="flex items-center gap-3 border-l border-border pl-3">
+    <div className="flex items-center gap-3 border-l border-border pl-4">
       <div className="hidden flex-col items-end leading-tight sm:flex">
         <span className="text-sm font-medium text-ink">{user.name}</span>
         {!user.emailVerified && <span className="text-xs text-warning">Email not verified</span>}

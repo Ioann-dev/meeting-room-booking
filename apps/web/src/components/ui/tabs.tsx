@@ -32,9 +32,9 @@ export function Tabs({ label, items, value, onValueChange }: TabsProps) {
             key={item.value}
             value={item.value}
             className={cn(
-              '-mb-px border-b-2 border-transparent px-3 py-2 text-sm font-medium text-ink-muted transition-colors',
+              '-mb-px border-b-2 border-transparent px-3 py-2 text-sm font-medium text-ink-muted transition-colors duration-150 ease-premium',
               'hover:text-ink',
-              'data-[state=active]:border-accent data-[state=active]:text-accent-strong',
+              'data-[state=active]:border-accent data-[state=active]:font-semibold data-[state=active]:text-accent-strong',
             )}
           >
             {item.label}

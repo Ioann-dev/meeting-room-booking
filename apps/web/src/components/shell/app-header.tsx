@@ -65,7 +65,10 @@ export function AppHeader({ user, onLoggedOut }: AppHeaderProps) {
     <header className="sticky top-0 z-30 border-b border-border bg-surface">
       <div className="mx-auto flex h-[68px] w-full max-w-7xl items-center justify-between gap-4 px-4 sm:px-6 lg:px-8">
         <div className="flex h-full items-center gap-8">
-          <Link href="/schedule" className="flex shrink-0 items-center gap-2.5">
+          <Link
+            href="/schedule"
+            className="flex shrink-0 items-center gap-2.5 rounded-md transition-opacity duration-150 ease-premium hover:opacity-80"
+          >
             <WordmarkIcon />
             <span className="text-sm font-semibold tracking-tight text-ink">Meeting Rooms</span>
           </Link>
@@ -78,14 +81,14 @@ export function AppHeader({ user, onLoggedOut }: AppHeaderProps) {
                   href={item.href}
                   aria-current={active ? 'page' : undefined}
                   className={cn(
-                    'flex h-full items-center border-b-2 px-1 text-sm transition-colors',
-                    // Active tab text now also goes violet (was plain
-                    // ink, matched only by the underline) -- a slightly
-                    // stronger brand presence in the nav without turning
-                    // the header itself into a colored bar.
+                    'flex items-center rounded-full px-3.5 py-2 text-sm transition-colors duration-150 ease-premium',
+                    // A filled violet pill, not just a thin underline --
+                    // a deliberately stronger "you are here" signal than
+                    // the prior border-bottom treatment, matching the
+                    // filled-tab pattern premium SaaS product navs use.
                     active
-                      ? 'border-accent font-semibold text-primary-active'
-                      : 'border-transparent font-medium text-ink-muted hover:text-ink',
+                      ? 'bg-primary-soft font-semibold text-primary-active'
+                      : 'font-medium text-ink-muted hover:bg-surface-hover hover:text-ink',
                   )}
                 >
                   {item.label}
@@ -95,7 +98,7 @@ export function AppHeader({ user, onLoggedOut }: AppHeaderProps) {
           </nav>
         </div>
 
-        <div className="hidden items-center gap-2 md:flex">
+        <div className="hidden items-center gap-3 md:flex">
           {user ? (
             <>
               <NotificationBell />
@@ -124,7 +127,7 @@ export function AppHeader({ user, onLoggedOut }: AppHeaderProps) {
             onClick={() => setMobileNavOpen(true)}
             disabled={!user}
             aria-label="Open menu"
-            className="rounded-md p-3 text-ink-muted transition-colors hover:bg-surface-hover hover:text-ink disabled:cursor-not-allowed disabled:opacity-60"
+            className="rounded-md p-3 text-ink-muted transition-colors duration-150 ease-premium hover:bg-surface-hover hover:text-ink disabled:cursor-not-allowed disabled:opacity-60"
           >
             <svg viewBox="0 0 20 20" fill="none" aria-hidden="true" className="h-5 w-5">
               <path

@@ -50,19 +50,19 @@ export function MobileNav({ open, onOpenChange, user, onLoggedOut, triggerRef }:
   return (
     <RadixDialog.Root open={open} onOpenChange={onOpenChange}>
       <RadixDialog.Portal>
-        <RadixDialog.Overlay className="fixed inset-0 z-40 bg-ink/40 md:hidden" />
+        <RadixDialog.Overlay className="fixed inset-0 z-40 bg-ink/40 md:hidden data-[state=closed]:animate-[premium-fade-out_180ms_var(--ease-premium)_forwards] data-[state=open]:animate-[premium-fade-in_180ms_var(--ease-premium)]" />
         <RadixDialog.Content
           onCloseAutoFocus={(event) => {
             event.preventDefault();
             triggerRef.current?.focus();
           }}
-          className="fixed inset-y-0 right-0 z-50 flex w-72 max-w-[85vw] flex-col gap-6 border-l border-border bg-surface p-6 md:hidden"
+          className="fixed inset-y-0 right-0 z-50 flex w-72 max-w-[85vw] flex-col gap-6 border-l border-border bg-surface p-6 shadow-lg md:hidden data-[state=closed]:animate-[premium-drawer-out_220ms_var(--ease-premium)_forwards] data-[state=open]:animate-[premium-drawer-in_220ms_var(--ease-premium)]"
         >
           <div className="flex items-center justify-between">
             <RadixDialog.Title className="text-sm font-semibold text-ink">Menu</RadixDialog.Title>
             <RadixDialog.Close
               aria-label="Close menu"
-              className="flex h-11 w-11 items-center justify-center rounded-md text-ink-muted hover:bg-surface-hover hover:text-ink"
+              className="flex h-11 w-11 items-center justify-center rounded-md text-ink-muted transition-colors duration-150 ease-premium hover:bg-surface-hover hover:text-ink"
             >
               <svg viewBox="0 0 20 20" fill="none" aria-hidden="true" className="h-5 w-5">
                 <path
@@ -85,10 +85,10 @@ export function MobileNav({ open, onOpenChange, user, onLoggedOut, triggerRef }:
                   aria-current={active ? 'page' : undefined}
                   onClick={() => onOpenChange(false)}
                   className={cn(
-                    'flex items-center rounded-md px-3 py-3 text-sm',
+                    'flex items-center rounded-md px-3 py-3 text-sm transition-colors duration-150 ease-premium',
                     active
-                      ? 'font-semibold text-accent'
-                      : 'font-medium text-ink-muted hover:text-ink',
+                      ? 'bg-primary-soft font-semibold text-primary-active'
+                      : 'font-medium text-ink-muted hover:bg-surface-hover hover:text-ink',
                   )}
                 >
                   {item.label}

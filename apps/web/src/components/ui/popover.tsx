@@ -38,6 +38,10 @@ export function Popover({
           sideOffset={8}
           className={cn(
             'z-50 w-[360px] max-w-[calc(100vw-2rem)] rounded-lg border border-border bg-surface p-2 shadow-lg',
+            // Same Presence-driven data-state animation Dialog uses (see
+            // its own comment) -- a light fade + tiny upward settle on
+            // open, mirrored on close.
+            'data-[state=closed]:animate-[premium-popover-out_160ms_var(--ease-premium)_forwards] data-[state=open]:animate-[premium-popover-in_160ms_var(--ease-premium)]',
             className,
           )}
         >

@@ -123,6 +123,95 @@
 
   /* Focus ring */
   --color-focus-ring: var(--color-primary);
+
+  /* Motion system: one shared premium easing curve (a gentle ease-out,
+     quick to start and settling smoothly rather than the browser
+     default's mechanical linear-ish `ease`) plus the duration bands the
+     polish brief specifies. `--ease-premium` is a `--ease-*` theme key,
+     so Tailwind v4 generates a matching `ease-premium` utility from it
+     the same way `--color-*`/`--radius-*` generate their own utilities --
+     every call site below just uses `ease-premium` directly. Durations
+     are applied as plain `duration-*`/arbitrary values at each call site
+     (Tailwind has no equivalent auto-generating `--duration-*` theme
+     namespace), grouped here only as a reference for the bands in use:
+     120-160ms hover/microinteraction, 180-220ms surface/page-section,
+     200-240ms modal. */
+  --ease-premium: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* Keyframes for the motion system above. Plain CSS animations (not a
+   dependency) driven by Radix's own `data-state` attribute, which Radix's
+   internal Presence primitive already watches: it detects an in-progress
+   CSS animation on close and delays unmounting until it finishes, so
+   `data-[state=closed]:animate-*` below gets a real exit animation without
+   `forceMount` or any extra JS. */
+@keyframes premium-fade-in {
+  from {
+    opacity: 0;
+  }
+}
+@keyframes premium-fade-out {
+  to {
+    opacity: 0;
+  }
+}
+@keyframes premium-dialog-in {
+  from {
+    opacity: 0;
+    transform: translate(-50%, calc(-50% + 8px)) scale(0.98);
+  }
+}
+@keyframes premium-dialog-out {
+  to {
+    opacity: 0;
+    transform: translate(-50%, calc(-50% + 8px)) scale(0.98);
+  }
+}
+@keyframes premium-sheet-in {
+  from {
+    transform: translateY(100%);
+  }
+}
+@keyframes premium-sheet-out {
+  to {
+    transform: translateY(100%);
+  }
+}
+@keyframes premium-popover-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.98);
+  }
+}
+@keyframes premium-popover-out {
+  to {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.98);
+  }
+}
+@keyframes premium-drawer-in {
+  from {
+    transform: translateX(100%);
+  }
+}
+@keyframes premium-drawer-out {
+  to {
+    transform: translateX(100%);
+  }
+}
+@keyframes premium-card-in {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+}
+@keyframes premium-shimmer {
+  from {
+    background-position: 150% 0;
+  }
+  to {
+    background-position: -50% 0;
+  }
 }
 
 @layer base {

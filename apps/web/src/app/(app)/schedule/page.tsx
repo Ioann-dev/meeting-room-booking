@@ -84,8 +84,8 @@ export default function SchedulePage() {
   return (
     <div className="mx-auto flex w-full max-w-7xl flex-col gap-8">
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight text-ink">Rooms</h1>
-        <p className="mt-1.5 text-sm text-ink-subtle">
+        <h1 className="text-3xl font-semibold tracking-tight text-ink">Rooms</h1>
+        <p className="mt-2 text-sm text-ink-subtle">
           Browse the meeting rooms available across the office.
         </p>
       </div>
