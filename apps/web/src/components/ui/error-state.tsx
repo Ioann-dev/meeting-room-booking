@@ -16,11 +16,11 @@ export function ErrorState({
   return (
     <div
       role="alert"
-      className="flex flex-col items-center gap-3 rounded-lg border border-border bg-surface px-6 py-14 text-center"
+      className="flex flex-col items-center gap-3.5 rounded-lg border border-border bg-surface px-6 py-16 text-center shadow-sm"
     >
       <span
         aria-hidden="true"
-        className="flex h-10 w-10 items-center justify-center rounded-full bg-danger-tint text-danger"
+        className="flex h-12 w-12 items-center justify-center rounded-full bg-danger-tint text-danger"
       >
         <svg viewBox="0 0 20 20" fill="none" className="h-5 w-5">
           <path
@@ -33,8 +33,8 @@ export function ErrorState({
           <circle cx="10" cy="14.2" r="0.9" fill="currentColor" />
         </svg>
       </span>
-      <div className="flex flex-col gap-1">
-        <p className="text-sm font-medium text-ink">{title}</p>
+      <div className="flex max-w-xs flex-col gap-1.5">
+        <p className="text-sm font-semibold text-ink">{title}</p>
         {description && <p className="text-sm text-ink-subtle">{description}</p>}
       </div>
       {onRetry && (

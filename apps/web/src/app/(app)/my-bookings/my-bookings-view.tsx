@@ -31,10 +31,10 @@ export function MyBookingsView() {
   }
 
   return (
-    <div className="mx-auto flex w-full max-w-4xl flex-col gap-7">
+    <div className="mx-auto flex w-full max-w-4xl flex-col gap-7 animate-[premium-page-in_180ms_var(--ease-premium)]">
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight text-ink">My Bookings</h1>
-        <p className="mt-1.5 text-sm text-ink-subtle">Your upcoming and past room bookings.</p>
+        <h1 className="text-3xl font-semibold tracking-tight text-ink">My Bookings</h1>
+        <p className="mt-2 text-sm text-ink-subtle">Your upcoming and past room bookings.</p>
       </div>
       <Tabs
         label="My bookings sections"

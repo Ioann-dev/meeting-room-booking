@@ -82,25 +82,25 @@ export function NotificationBell() {
         </button>
       }
     >
-      <p className="px-2 py-1.5 text-xs font-semibold uppercase tracking-wide text-ink-subtle">
+      <p className="border-b border-border px-2 pb-2 pt-1 text-xs font-semibold uppercase tracking-wide text-ink-subtle">
         Notifications
       </p>
       {items.length === 0 ? (
-        <div className="flex flex-col items-center gap-2 px-2 py-8 text-center">
+        <div className="flex flex-col items-center gap-2.5 px-2 py-9 text-center">
           <span
             aria-hidden="true"
-            className="flex h-9 w-9 items-center justify-center rounded-full bg-surface-muted text-ink-faint"
+            className="flex h-10 w-10 items-center justify-center rounded-full bg-surface-muted text-ink-faint"
           >
             <BellIcon />
           </span>
           <p className="text-sm text-ink-subtle">No notifications yet</p>
         </div>
       ) : (
-        <ul className="flex max-h-80 flex-col gap-0.5 overflow-y-auto">
+        <ul className="flex max-h-80 flex-col divide-y divide-border/70 overflow-y-auto">
           {items.map((item) => (
             <li
               key={item.id}
-              className="flex gap-2.5 rounded-md px-2 py-2.5 text-sm transition-colors hover:bg-surface-muted"
+              className="flex gap-2.5 px-2 py-3 text-sm transition-colors duration-150 ease-premium first:pt-2.5 hover:bg-surface-muted"
             >
               {/* Marks which items were unread as of this popover's last
                   fetch -- markAllRead() is optimistic/local-only (see
@@ -110,7 +110,7 @@ export function NotificationBell() {
               <span
                 aria-hidden="true"
                 className={cn(
-                  'mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full',
+                  'mt-1.5 h-2 w-2 shrink-0 rounded-full',
                   item.readAt === null ? 'bg-accent' : 'bg-transparent',
                 )}
               />
@@ -119,7 +119,7 @@ export function NotificationBell() {
                   Your booking &quot;{item.endingBookingTitle}&quot; in {item.roomName} ends soon --
                   the next slot is booked.
                 </p>
-                <p className="mt-0.5 tabular-nums text-xs text-ink-faint">
+                <p className="mt-1 tabular-nums text-xs text-ink-faint">
                   {formatNotificationTime(item.endingBookingEndAt, displayZone)}
                 </p>
               </div>

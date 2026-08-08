@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import type { CSSProperties } from 'react';
 import type { RoomSummary } from 'shared';
 import { paletteForId } from '@/lib/event-palette';
 
@@ -13,10 +14,13 @@ export function RoomCard({ room }: { room: RoomSummary }) {
   return (
     <Link
       href={`/schedule/${room.id}`}
-      // shadow-sm at rest, stepping up to a deeper, more premium shadow +
-      // a slightly punchier lift on hover (visual-polish pass) -- still
-      // restrained, not overlay-strength.
-      className="group relative flex h-full flex-col gap-5 overflow-hidden rounded-lg border border-border bg-surface p-6 shadow-sm transition-[background-color,border-color,box-shadow,transform] duration-200 ease-premium hover:-translate-y-1 hover:border-border-strong hover:shadow-[0_14px_28px_-8px_rgb(15_23_32_/_0.2)]"
+      style={{ '--room-accent': accent.border, '--room-tint': accent.background } as CSSProperties}
+      // shadow-sm at rest, stepping up to a deeper, more premium shadow on
+      // hover, a restrained ~2px lift, and the room's own deterministic
+      // accent color (not a generic gray) for the hover border/tint -- the
+      // custom properties above make this "accent-derived" without a
+      // second per-room className branch.
+      className="group relative flex h-full flex-col gap-5 overflow-hidden rounded-lg border border-border bg-surface p-6 shadow-sm transition-[background-color,border-color,box-shadow,transform] duration-200 ease-premium hover:-translate-y-0.5 hover:border-[var(--room-accent)] hover:bg-[var(--room-tint)] hover:shadow-[0_14px_28px_-8px_rgb(15_23_32_/_0.2)]"
       // The three stacked text nodes below (name, floor, capacity) have no
       // punctuation or separators between them visually -- fine to read at
       // a glance, but their concatenated text content is what a screen
@@ -53,7 +57,7 @@ export function RoomCard({ room }: { room: RoomSummary }) {
         <svg
           viewBox="0 0 16 16"
           fill="none"
-          className="mt-0.5 h-4 w-4 shrink-0 -translate-x-1 text-ink-faint opacity-0 transition-[transform,opacity] duration-200 ease-premium group-hover:translate-x-0 group-hover:opacity-100 group-focus-visible:translate-x-0 group-focus-visible:opacity-100"
+          className="mt-0.5 h-4 w-4 shrink-0 -translate-x-0.5 text-ink-faint opacity-0 transition-[transform,opacity] duration-200 ease-premium group-hover:translate-x-0 group-hover:opacity-100 group-focus-visible:translate-x-0 group-focus-visible:opacity-100"
         >
           <path
             d="M6 3.5 10.5 8 6 12.5"

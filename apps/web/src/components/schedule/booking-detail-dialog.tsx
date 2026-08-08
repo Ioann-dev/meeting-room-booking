@@ -77,9 +77,14 @@ function BookingDetailContent({
       <div
         className={cn(
           'inline-flex w-fit items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium',
-          booking.isOwnBooking
-            ? 'bg-accent-tint text-accent-strong'
-            : 'bg-surface-muted text-ink-subtle',
+          // Teal, not the general primary/accent color -- ownership on the
+          // calendar itself (BookingBlock's own teal treatment, the
+          // current-time indicator) is already teal's one reserved
+          // meaning app-wide; this badge was the one place still using
+          // the general violet accent for the same fact, which read as
+          // two different colors claiming the same "this is yours"
+          // signal depending on which screen you were on.
+          booking.isOwnBooking ? 'bg-teal-soft text-[#0A675A]' : 'bg-surface-muted text-ink-subtle',
         )}
       >
         {booking.isOwnBooking && (

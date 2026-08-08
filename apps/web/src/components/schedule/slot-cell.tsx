@@ -27,13 +27,14 @@ export function SlotCell({
   const position: CSSProperties = { gridColumn, gridRow };
 
   if (isPast) {
-    // A plain wash, not a button: past slots aren't selectable. bg-surface-
-    // soft (not a stronger gray) so it reads as quietly unavailable without
-    // fighting the far more important colored booking blocks and the
-    // Today-column tint for attention -- both of those still need to read
-    // as the most prominent things on the grid.
+    // A plain wash, not a button: past slots aren't selectable. bg-canvas
+    // (a barely-there cool off-white, not bg-surface-soft's more visible
+    // gray) -- across a mostly-past week, surface-soft's stronger tint
+    // covered enough of the grid to read as one large disabled block; this
+    // still reads as quietly non-interactive without dominating the grid's
+    // overall brightness the way the stronger gray did.
     return (
-      <div aria-hidden="true" className="relative bg-surface-soft" style={position}>
+      <div aria-hidden="true" className="relative bg-canvas" style={position}>
         {currentTimeFraction !== undefined && <CurrentTimeMark fraction={currentTimeFraction} />}
       </div>
     );

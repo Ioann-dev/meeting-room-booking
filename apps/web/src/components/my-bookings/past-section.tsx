@@ -6,10 +6,10 @@ import { Alert } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/empty-state';
 import { ErrorState } from '@/components/ui/error-state';
-import { Skeleton } from '@/components/ui/skeleton';
 import { ApiError } from '@/lib/api-error';
 import { fetchMyPastBookings } from '@/lib/my-bookings-client';
 import { BookingRow } from './booking-row';
+import { BookingRowSkeleton } from './booking-row-skeleton';
 
 type LoadState =
   | { phase: 'error'; message: string }
@@ -94,7 +94,7 @@ export function PastSection({ displayZone }: { displayZone: string }) {
     return (
       <div className="flex flex-col gap-2">
         {Array.from({ length: SKELETON_ROW_COUNT }, (_, index) => (
-          <Skeleton key={index} className="h-16" />
+          <BookingRowSkeleton key={index} />
         ))}
       </div>
     );
@@ -123,7 +123,7 @@ export function PastSection({ displayZone }: { displayZone: string }) {
     <div className="flex flex-col gap-3">
       <ul className="flex flex-col gap-2">
         {result.state.items.map((booking) => (
-          <BookingRow key={booking.id} booking={booking} displayZone={displayZone} />
+          <BookingRow key={booking.id} booking={booking} displayZone={displayZone} muted />
         ))}
       </ul>
       {loadMoreError && (

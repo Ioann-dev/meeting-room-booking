@@ -4,12 +4,12 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { FormEvent, useEffect, useState } from 'react';
 import { isValidEmailFormat } from 'shared';
+import { AuthShell } from '@/components/auth/auth-shell';
 import { Alert } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { FormField } from '@/components/ui/form-field';
 import { Input } from '@/components/ui/input';
 import { Spinner } from '@/components/ui/spinner';
-import { WordmarkIcon } from '@/components/shell/app-header';
 import { useCurrentUser } from '@/hooks/use-current-user';
 import { ApiError } from '@/lib/api-error';
 import { login } from '@/lib/auth-client';
@@ -113,55 +113,51 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center gap-8 bg-canvas px-4 py-12">
-      <Link href="/" className="flex items-center gap-2.5">
-        <WordmarkIcon />
-        <span className="text-sm font-semibold tracking-tight text-ink">Meeting Rooms</span>
-      </Link>
+    <AuthShell
+      title="Log in"
+      subtitle={
+        <>
+          Need an account?{' '}
+          <Link
+            href="/register"
+            className="font-medium text-accent transition-colors duration-150 ease-premium hover:text-accent-strong"
+          >
+            Register
+          </Link>
+        </>
+      }
+    >
+      <form
+        className="flex flex-col gap-4"
+        onSubmit={(event) => void handleSubmit(event)}
+        noValidate
+      >
+        {serverError && <Alert variant="error">{serverError}</Alert>}
 
-      <div className="w-full max-w-[26rem] rounded-lg border border-border bg-surface p-8 shadow-sm">
-        <div className="mb-6">
-          <h1 className="text-2xl font-semibold tracking-tight text-ink">Log in</h1>
-          <p className="mt-1.5 text-sm text-ink-subtle">
-            Need an account?{' '}
-            <Link href="/register" className="font-medium text-accent hover:text-accent-strong">
-              Register
-            </Link>
-          </p>
-        </div>
+        <FormField label="Email" error={fieldErrors.email}>
+          <Input
+            name="email"
+            type="email"
+            autoComplete="email"
+            value={email}
+            onChange={(event) => handleEmailChange(event.target.value)}
+          />
+        </FormField>
 
-        <form
-          className="flex flex-col gap-4"
-          onSubmit={(event) => void handleSubmit(event)}
-          noValidate
-        >
-          {serverError && <Alert variant="error">{serverError}</Alert>}
+        <FormField label="Password" error={fieldErrors.password}>
+          <Input
+            name="password"
+            type="password"
+            autoComplete="current-password"
+            value={password}
+            onChange={(event) => handlePasswordChange(event.target.value)}
+          />
+        </FormField>
 
-          <FormField label="Email" error={fieldErrors.email}>
-            <Input
-              name="email"
-              type="email"
-              autoComplete="email"
-              value={email}
-              onChange={(event) => handleEmailChange(event.target.value)}
-            />
-          </FormField>
-
-          <FormField label="Password" error={fieldErrors.password}>
-            <Input
-              name="password"
-              type="password"
-              autoComplete="current-password"
-              value={password}
-              onChange={(event) => handlePasswordChange(event.target.value)}
-            />
-          </FormField>
-
-          <Button type="submit" loading={pending} className="mt-2 w-full">
-            Log in
-          </Button>
-        </form>
-      </div>
-    </main>
+        <Button type="submit" loading={pending} className="mt-2 w-full">
+          Log in
+        </Button>
+      </form>
+    </AuthShell>
   );
 }

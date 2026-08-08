@@ -7,11 +7,11 @@ import { BookingCancelPanel, type CancelScope } from '@/components/booking/booki
 import { Dialog } from '@/components/ui/dialog';
 import { EmptyState } from '@/components/ui/empty-state';
 import { ErrorState } from '@/components/ui/error-state';
-import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/components/ui/toast';
 import { ApiError } from '@/lib/api-error';
 import { fetchMyUpcomingBookings } from '@/lib/my-bookings-client';
 import { BookingRow } from './booking-row';
+import { BookingRowSkeleton } from './booking-row-skeleton';
 
 type LoadState =
   { phase: 'error'; message: string } | { phase: 'ready'; items: MyBookingSummary[] };
@@ -75,7 +75,7 @@ export function UpcomingSection({ displayZone }: { displayZone: string }) {
     return (
       <div className="flex flex-col gap-2">
         {Array.from({ length: SKELETON_ROW_COUNT }, (_, index) => (
-          <Skeleton key={index} className="h-16" />
+          <BookingRowSkeleton key={index} />
         ))}
       </div>
     );

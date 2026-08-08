@@ -265,7 +265,10 @@ export function RoomScheduleView() {
   const showOfficeEquivalent = userTimeZone !== null && userTimeZone !== OFFICE_TIMEZONE;
 
   return (
-    <div className="flex flex-col gap-4" aria-busy={isRefreshing || undefined}>
+    <div
+      className="flex flex-col gap-4 animate-[premium-page-in_180ms_var(--ease-premium)]"
+      aria-busy={isRefreshing || undefined}
+    >
       <RoomHeader room={room} onBook={handleOpenCreateDialog} />
       <WeekNavigation
         weekStartUtc={schedule.weekStartUtc}

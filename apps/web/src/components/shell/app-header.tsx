@@ -63,7 +63,16 @@ export function AppHeader({ user, onLoggedOut }: AppHeaderProps) {
 
   return (
     <header className="sticky top-0 z-30 border-b border-border bg-surface">
-      <div className="mx-auto flex h-[68px] w-full max-w-7xl items-center justify-between gap-4 px-4 sm:px-6 lg:px-8">
+      {/* max-w-[100rem]: the same ceiling AppShell's <main> uses, not the
+          narrower max-w-7xl this used before -- at 1440-1600px desktop
+          widths, the wide Schedule page (which claims the shell's full
+          canvas) was rendering visibly wider than the header/timezone
+          chrome above it, so the header's own edges looked like a
+          separate, narrower container rather than the same page. Rooms
+          and My Bookings still apply their own narrower content width
+          *inside* this shared ceiling, so they stay centered under it
+          exactly as before. */}
+      <div className="mx-auto flex h-[68px] w-full max-w-[100rem] items-center justify-between gap-4 px-4 sm:px-6 lg:px-8">
         <div className="flex h-full items-center gap-8">
           <Link
             href="/schedule"

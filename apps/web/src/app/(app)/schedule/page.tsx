@@ -5,8 +5,8 @@ import type { RoomSummary } from 'shared';
 import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/empty-state';
 import { ErrorState } from '@/components/ui/error-state';
-import { Skeleton } from '@/components/ui/skeleton';
 import { CapacityFilter } from '@/components/rooms/capacity-filter';
+import { RoomCardSkeleton } from '@/components/rooms/room-card-skeleton';
 import { RoomList } from '@/components/rooms/room-list';
 import { ApiError } from '@/lib/api-error';
 import { fetchRooms } from '@/lib/rooms-client';
@@ -82,7 +82,7 @@ export default function SchedulePage() {
   }
 
   return (
-    <div className="mx-auto flex w-full max-w-7xl flex-col gap-8">
+    <div className="mx-auto flex w-full max-w-7xl flex-col gap-8 animate-[premium-page-in_180ms_var(--ease-premium)]">
       <div>
         <h1 className="text-3xl font-semibold tracking-tight text-ink">Rooms</h1>
         <p className="mt-2 text-sm text-ink-subtle">
@@ -90,12 +90,18 @@ export default function SchedulePage() {
         </p>
       </div>
 
-      <CapacityFilter value={minCapacityInput} onChange={handleCapacityChange} />
+      <CapacityFilter
+        value={minCapacityInput}
+        onChange={handleCapacityChange}
+        resultCount={
+          !loading && result.state.phase === 'ready' ? result.state.rooms.length : undefined
+        }
+      />
 
       {loading && (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {Array.from({ length: SKELETON_COUNT }, (_, index) => (
-            <Skeleton key={index} className="h-32" />
+            <RoomCardSkeleton key={index} />
           ))}
         </div>
       )}

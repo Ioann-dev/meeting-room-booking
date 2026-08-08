@@ -199,6 +199,18 @@
     transform: translateX(100%);
   }
 }
+@keyframes premium-page-in {
+  from {
+    opacity: 0;
+    transform: translateY(5px);
+  }
+}
+@keyframes premium-toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
 @keyframes premium-card-in {
   from {
     opacity: 0;

@@ -239,6 +239,7 @@ function BookingCreateForm({
       )}
       {serverError && <Alert variant="error">{serverError}</Alert>}
 
+      <p className="text-xs font-semibold uppercase tracking-wide text-ink-faint">When</p>
       <FormField label="Date">
         <Select
           value={String(dayIndex)}
@@ -298,7 +299,7 @@ function BookingCreateForm({
       </div>
 
       {displayZone !== OFFICE_TIMEZONE && (
-        <p className="flex items-start gap-1.5 rounded-md bg-surface-muted px-3 py-2 text-xs text-ink-subtle">
+        <p className="flex items-start gap-1.5 rounded-md bg-primary-soft px-3 py-2 text-xs text-ink-subtle">
           <svg
             viewBox="0 0 16 16"
             fill="none"
@@ -327,6 +328,9 @@ function BookingCreateForm({
           exactly 100 chars), so it recolors to the Warning token, not
           Danger -- Danger stays reserved for the actual validation error
           below (fieldErrors.title), which this hint yields to regardless. */}
+      <p className="mt-1 border-t border-border pt-4 text-xs font-semibold uppercase tracking-wide text-ink-faint">
+        Details
+      </p>
       <FormField
         label="Title"
         error={fieldErrors.title}
@@ -350,6 +354,9 @@ function BookingCreateForm({
         />
       </FormField>
 
+      <p className="mt-1 border-t border-border pt-4 text-xs font-semibold uppercase tracking-wide text-ink-faint">
+        Recurrence
+      </p>
       {/* py-3/md:py-2.5: same touch-target treatment as Input/Select/Button
           below md: -- the checkbox itself is small, but this label is the
           whole clickable/tappable row. */}
