@@ -12,8 +12,13 @@ export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 const VARIANT_CLASSES: Record<ButtonVariant, string> = {
   primary:
     'bg-accent text-white shadow-primary hover:bg-accent-strong hover:shadow-primary-hover active:bg-primary-active',
+  // Hover/pressed now read as "subtle violet" (primary-soft tint + a
+  // primary-tinted border and label) instead of the previous plain gray
+  // wash -- still a white button at rest, per the brief, but its
+  // interactive states now belong to the same violet system primary
+  // uses rather than reading as a neutral gray control.
   secondary:
-    'border border-border bg-surface text-ink shadow-sm hover:border-border-strong hover:bg-surface-hover',
+    'border border-border bg-surface text-ink shadow-sm hover:border-primary hover:bg-primary-soft hover:text-primary-active active:bg-primary-soft active:border-primary-hover',
   destructive: 'bg-danger text-white shadow-sm hover:bg-danger-strong active:bg-danger-active',
   ghost: 'text-ink-muted hover:bg-surface-hover hover:text-ink',
 };

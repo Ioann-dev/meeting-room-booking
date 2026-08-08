@@ -281,7 +281,15 @@ export function WeeklyGrid({
           {/* Corner cell: sticky on both axes, so it always sits above
               whichever day column has scrolled underneath it. */}
           <div
-            className="sticky left-0 top-0 z-30 flex flex-col justify-center gap-0.5 border-b-2 border-grid-line bg-surface-soft px-2 py-2 text-left leading-none"
+            // bg-surface (white), not bg-surface-soft: brightening every
+            // non-today header/corner cell to white -- rather than the
+            // prior uniform gray-soft wash across the whole header row --
+            // both reads cleaner on its own and makes the Today header's
+            // still-tinted violet the only colored cell in the row, so it
+            // pops by contrast instead of blending into an already-tinted
+            // strip (visual-polish pass; the border still marks the row
+            // boundary, so nothing here affects grid geometry).
+            className="sticky left-0 top-0 z-30 flex flex-col justify-center gap-0.5 border-b-2 border-grid-line bg-surface px-2 py-2 text-left leading-none"
             style={{ gridColumn: 1, gridRow: 1 }}
           >
             <span className="text-[11px] font-bold uppercase tracking-[0.04em] text-ink-secondary">
@@ -307,7 +315,10 @@ export function WeeklyGrid({
                 }}
                 className={cn(
                   'sticky top-0 z-20 flex flex-col justify-center border-b-2 border-grid-line px-2 py-2 text-left',
-                  isToday ? 'bg-today-header-bg' : 'bg-surface-soft',
+                  // Non-today headers go white (see the corner cell's
+                  // comment above) so Today's violet tint is the one
+                  // colored cell in the row.
+                  isToday ? 'bg-today-header-bg' : 'bg-surface',
                 )}
                 style={{ gridColumn: dayIndex + 2, gridRow: 1 }}
               >

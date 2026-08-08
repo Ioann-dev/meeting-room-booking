@@ -33,7 +33,10 @@ export function WordmarkIcon() {
   return (
     <span
       aria-hidden="true"
-      className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-accent-tint text-accent-strong"
+      // Solid primary fill + white icon, not the previous barely-there
+      // accent-tint wash -- a stronger, more premium brand mark (visual-
+      // polish pass; still a small 32px chip, not a colored header bar).
+      className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-accent text-white shadow-primary"
     >
       <svg viewBox="0 0 16 16" fill="none" className="h-[18px] w-[18px]">
         <rect
@@ -76,8 +79,12 @@ export function AppHeader({ user, onLoggedOut }: AppHeaderProps) {
                   aria-current={active ? 'page' : undefined}
                   className={cn(
                     'flex h-full items-center border-b-2 px-1 text-sm transition-colors',
+                    // Active tab text now also goes violet (was plain
+                    // ink, matched only by the underline) -- a slightly
+                    // stronger brand presence in the nav without turning
+                    // the header itself into a colored bar.
                     active
-                      ? 'border-accent font-semibold text-ink'
+                      ? 'border-accent font-semibold text-primary-active'
                       : 'border-transparent font-medium text-ink-muted hover:text-ink',
                   )}
                 >

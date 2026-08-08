@@ -61,15 +61,22 @@
   /* Teal: reserved specifically for "your booking" ownership emphasis on
      the calendar -- never spent on ordinary UI chrome (that's primary's
      job), so its rarity keeps doing the same signalling work Signal Teal
-     used to across the whole app, just narrowed to one meaningful place. */
+     used to across the whole app, just narrowed to one meaningful place.
+     `teal-soft` carries the same ~13% saturation boost as the event
+     palette below (visual-polish pass) so ownership doesn't read weaker
+     than an ordinary other-attendee event; title contrast on it stays at
+     6.0:1. */
   --color-teal: #17bfa7;
   --color-teal-hover: #109d8b;
-  --color-teal-soft: #dcf8f3;
+  --color-teal-soft: #d3f9f2;
 
   /* Today (calendar-specific, distinct from primary so the "you are here"
-     column reads as its own signal even where primary is also in view). */
-  --color-today-bg: #f0f1ff;
-  --color-today-header-bg: #e5e7ff;
+     column reads as its own signal even where primary is also in view).
+     Both stops deepened one step (visual-polish pass) so the column is
+     immediately recognizable rather than a near-invisible wash; ink text
+     on the body tint still clears 14.9:1, nowhere near the AA floor. */
+  --color-today-bg: #e9eaff;
+  --color-today-header-bg: #dee0ff;
   --color-today-border: #5b5ce2;
   --color-current-time: #13a995;
 

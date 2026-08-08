@@ -11,14 +11,19 @@ export interface EventColor {
   title: string;
 }
 
+// Backgrounds carry a ~13% saturation boost (with a slight lightness trim)
+// over the first pass, and borders a ~10% boost, per the visual-polish
+// brief's "10-15% richer, still AA" instruction -- title-vs-background
+// contrast was recomputed for every entry after the shift (lowest is cyan
+// at 5.43:1, still clear of the 4.5:1 floor) rather than assumed safe.
 export const EVENT_PALETTE: readonly EventColor[] = [
-  { name: 'purple', background: '#EEE9FF', border: '#7657E8', title: '#3F2B89' },
-  { name: 'blue', background: '#E4EFFF', border: '#3478F6', title: '#174A9D' },
-  { name: 'cyan', background: '#DDF7FB', border: '#16A8C7', title: '#096B7D' },
-  { name: 'mint', background: '#DDF7EC', border: '#20AD7A', title: '#11694C' },
-  { name: 'pink', background: '#FBE3F1', border: '#D94F9D', title: '#87275D' },
-  { name: 'coral', background: '#FDE7E3', border: '#EC6B59', title: '#8E392D' },
-  { name: 'amber', background: '#FFF2D5', border: '#D69A26', title: '#81580C' },
+  { name: 'purple', background: '#E8E1FF', border: '#7250EF', title: '#3F2B89' },
+  { name: 'blue', background: '#DCEAFF', border: '#2B75FF', title: '#174A9D' },
+  { name: 'cyan', background: '#D4F7FD', border: '#0DAED0', title: '#096B7D' },
+  { name: 'mint', background: '#D5F8E9', border: '#19B47C', title: '#11694C' },
+  { name: 'pink', background: '#FCDAEE', border: '#E0489E', title: '#87275D' },
+  { name: 'coral', background: '#FFDFDA', border: '#F36552', title: '#8E392D' },
+  { name: 'amber', background: '#FFF0CD', border: '#DF9D1D', title: '#81580C' },
 ];
 
 /**
