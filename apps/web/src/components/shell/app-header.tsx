@@ -33,9 +33,9 @@ export function WordmarkIcon() {
   return (
     <span
       aria-hidden="true"
-      className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-accent-tint text-accent-strong"
+      className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-accent-tint text-accent-strong"
     >
-      <svg viewBox="0 0 16 16" fill="none" className="h-4 w-4">
+      <svg viewBox="0 0 16 16" fill="none" className="h-[18px] w-[18px]">
         <rect
           x="2"
           y="2.5"
@@ -60,7 +60,7 @@ export function AppHeader({ user, onLoggedOut }: AppHeaderProps) {
 
   return (
     <header className="sticky top-0 z-30 border-b border-border bg-surface">
-      <div className="mx-auto flex h-16 w-full max-w-7xl items-center justify-between gap-4 px-4 sm:px-6 lg:px-8">
+      <div className="mx-auto flex h-[68px] w-full max-w-7xl items-center justify-between gap-4 px-4 sm:px-6 lg:px-8">
         <div className="flex h-full items-center gap-8">
           <Link href="/schedule" className="flex shrink-0 items-center gap-2.5">
             <WordmarkIcon />

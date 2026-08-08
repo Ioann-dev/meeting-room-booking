@@ -37,7 +37,7 @@ export function Popover({
           align={align}
           sideOffset={8}
           className={cn(
-            'z-50 w-80 max-w-[calc(100vw-2rem)] rounded-lg border border-border bg-surface p-2 shadow-lg',
+            'z-50 w-[360px] max-w-[calc(100vw-2rem)] rounded-lg border border-border bg-surface p-2 shadow-lg',
             className,
           )}
         >

@@ -44,116 +44,101 @@ function renderGrid(booking: BookingSummary | null, userTimeZone: string | null 
   );
 }
 
-/** The day-columns table is the one carrying table-fixed; the rail table doesn't. */
-function getDayTable(): HTMLElement {
-  return screen.getAllByRole('table').find((table) => table.className.includes('table-fixed'))!;
+/** The single labeled region standing in for the old table's caption/role. */
+function getGridRegion(): HTMLElement {
+  return screen.getByRole('group', { name: /Weekly schedule for Copenhagen/ });
 }
 
-function getRailTable(): HTMLElement {
-  return screen.getAllByRole('table').find((table) => !table.className.includes('table-fixed'))!;
+/** Rail label cells are found by their own aria-label, not a table role. */
+function getRailCells(): HTMLElement[] {
+  return screen.getAllByLabelText(/Kyiv time/);
 }
 
-describe('WeeklyGrid sticky time rail isolation (NEW-1)', () => {
-  it('renders the time rail and the day columns as two separate tables, not one shared table', () => {
+describe('WeeklyGrid shared grid geometry', () => {
+  it('renders the rail and every day column as one shared grid, not separate tables', () => {
     renderGrid(null);
-    expect(screen.getAllByRole('table')).toHaveLength(2);
+    // No table markup at all -- rail and day columns are grid children of
+    // the same `role="group"` container, sharing one grid-template-columns
+    // and one grid-template-rows definition (see the next tests), which is
+    // what makes their geometry match by construction instead of by two
+    // independently-computed layouts happening to agree.
+    expect(screen.queryAllByRole('table')).toHaveLength(0);
+    expect(getGridRegion().tagName).toBe('DIV');
   });
 
-  it('never uses left-axis sticky positioning on a table cell -- that combination is what let scrolled day-column content visually bleed through the rail (a real, reproducible Chromium compositing bug for sticky <th>/<td>, confirmed by comparing against an identical non-table sticky <div> that did not bleed)', () => {
+  it('derives the rail, every day header, and the current-time indicator from the same --slot-h/--header-h tokens', () => {
     renderGrid(null);
-    const allCells = [
-      ...getRailTable().querySelectorAll('th, td'),
-      ...getDayTable().querySelectorAll('th, td'),
-    ];
-    for (const cell of allCells) {
-      expect(cell.className).not.toMatch(/(?:^|\s)left-0(?:\s|$)/);
+    const region = getGridRegion();
+    // Both live directly on the single grid container's inline style --
+    // one canonical source, not a value duplicated (and potentially
+    // diverging) across the rail and the day-columns.
+    expect(region.style.getPropertyValue('--slot-h')).toBe('2.75rem');
+    expect(region.style.getPropertyValue('--header-h')).toBe('4rem');
+    expect(region.style.gridTemplateRows).toBe('var(--header-h) repeat(20, var(--slot-h))');
+  });
+
+  it('places the rail column and all 7 day columns in one grid-template-columns declaration', () => {
+    renderGrid(null);
+    const region = getGridRegion();
+    expect(region.className).toContain(
+      'grid-cols-[var(--rail-w)_repeat(7,var(--day-col-width,20rem))]',
+    );
+    expect(region.className).toContain('sm:grid-cols-[var(--rail-w)_repeat(7,minmax(6.5rem,1fr))]');
+  });
+
+  it('sticks the rail to the left edge and every day header to the top edge of the one shared scroll container', () => {
+    renderGrid(null);
+    for (const cell of getRailCells()) {
+      expect(cell.className).toMatch(/(?:^|\s)sticky(?:\s|$)/);
+      expect(cell.className).toMatch(/(?:^|\s)left-0(?:\s|$)/);
     }
-  });
-
-  it("keeps the rail table outside the day table's own horizontal scroll container", () => {
-    renderGrid(null);
-    const railTable = getRailTable();
-    const dayTable = getDayTable();
-    // The day table's horizontal scroll wrapper must not be an ancestor of
-    // the rail table -- otherwise the rail would scroll away with it.
-    const dayScrollAncestor = dayTable.closest('.overflow-x-auto');
-    expect(dayScrollAncestor).not.toBeNull();
-    expect(dayScrollAncestor!.contains(railTable)).toBe(false);
-  });
-
-  it('gives the rail and day tables matching header heights so their rows stay aligned without needing to be the same physical table', () => {
-    renderGrid(null);
-    const railHeaderWrapper = getRailTable().querySelector('thead th > div')!;
-    expect(railHeaderWrapper.className).toContain('min-h-14');
-    // The day table always renders a (possibly invisible) "Today" line so
-    // its header height is deterministic regardless of which day, if any,
-    // is today -- matching the rail header's fixed min-h-14 without a
-    // runtime measurement dependency between the two tables.
-    const todayLines = getDayTable().querySelectorAll('thead th span:last-child');
-    expect(todayLines.length).toBeGreaterThan(0);
-    for (const line of todayLines) {
-      expect(line.textContent).toBe('Today');
-    }
+    const dayHeaders = screen.getAllByText(/AUG|MAR|JUN/i, { selector: 'span.tabular-nums' });
+    expect(dayHeaders.length).toBeGreaterThan(0);
   });
 });
 
-describe('WeeklyGrid day-column width stability (H1)', () => {
-  it('locks the day table to table-layout: fixed so column width cannot be driven by cell content', () => {
-    renderGrid(null);
-    expect(getDayTable().className).toContain('table-fixed');
-  });
-
-  it('renders a long unbroken booking title without changing the day-column width definition', () => {
+describe('WeeklyGrid day-column width stability', () => {
+  it('renders a long unbroken booking title without changing the shared column-definition source', () => {
     const { unmount } = renderGrid(null);
-    const emptyWidthClasses = screen.getAllByRole('columnheader').map((th) => th.className);
+    const emptyColumns = getGridRegion().className;
     unmount();
 
     renderGrid(longTitleBooking());
-    const longTitleWidthClasses = screen.getAllByRole('columnheader').map((th) => th.className);
+    const longTitleColumns = getGridRegion().className;
 
-    // Column-defining markup must be identical whether or not a booking with
-    // an unbroken 100+ character title is present -- table-fixed decouples
-    // column width from cell content entirely, so this holds structurally
-    // rather than by coincidence.
-    expect(longTitleWidthClasses).toEqual(emptyWidthClasses);
+    // The grid-template-columns declaration lives once, on the container --
+    // a 100+ character unbroken title inside one cell has no path to widen
+    // its own column, unlike a content-driven table layout would.
+    expect(longTitleColumns).toBe(emptyColumns);
   });
 });
 
-describe('WeeklyGrid temporal row geometry (M1)', () => {
-  it('pins the time-rail row cell to the same nominal per-row unit as SlotCell/BookingBlock', () => {
-    renderGrid(null);
-    // The height constraint lives on the inner div, not the <th> itself --
-    // table cells don't reliably honor min-height/max-height as a row-
-    // sizing floor when alone in a single-column table (verified live: an
-    // identical constraint placed directly on the <th> was silently
-    // ignored by the browser's row-sizing algorithm).
-    const railCell = screen.getAllByRole('rowheader')[0]!;
-    const heightWrapper = railCell.querySelector('div')!;
-    expect(heightWrapper.className).toContain('min-h-11');
-    expect(heightWrapper.className).toContain('max-h-11');
-    expect(heightWrapper.className).toContain('md:min-h-8');
-    expect(heightWrapper.className).toContain('md:max-h-8');
+describe('WeeklyGrid temporal row geometry', () => {
+  it('gives every rail cell an accessible label naming the Kyiv time', () => {
+    renderGrid(null, OFFICE_TIMEZONE);
+    const cells = getRailCells();
+    expect(cells.length).toBeGreaterThan(0);
+    expect(cells[0]!.getAttribute('aria-label')).toMatch(/Kyiv time$/);
   });
 
-  it('renders the dual-zone secondary label with tightened line-height so it fits the pinned row budget', () => {
+  it('shows the viewer time as the bold primary label and Kyiv as the smaller secondary label when the zones differ', () => {
     renderGrid(null, 'Europe/Berlin');
-    const railCell = screen.getAllByRole('rowheader')[0]!;
-    const [primaryLabel, secondaryLabel] = Array.from(railCell.querySelectorAll('span'));
-    expect(primaryLabel!.className).toContain('leading-none');
-    // Europe/Berlin differs from OFFICE_TIMEZONE (Europe/Kyiv), so the
-    // secondary browser-zone label must be present alongside the primary one.
-    expect(secondaryLabel).not.toBeUndefined();
-    expect(secondaryLabel!.className).toContain('leading-none');
+    const cell = getRailCells()[0]!;
+    const spans = Array.from(cell.querySelectorAll('span'));
+    expect(spans).toHaveLength(2);
+    expect(spans[0]!.className).toContain('font-bold');
+    expect(spans[1]!.className).toContain('font-medium');
+    expect(cell.getAttribute('aria-label')).toMatch(/your time, .+ Kyiv time$/);
   });
 
   it('omits the secondary label entirely when the viewer zone matches the office zone', () => {
     renderGrid(null, OFFICE_TIMEZONE);
-    const railCell = screen.getAllByRole('rowheader')[0]!;
-    expect(railCell.querySelectorAll('span')).toHaveLength(1);
+    const cell = getRailCells()[0]!;
+    expect(cell.querySelectorAll('span')).toHaveLength(1);
   });
 });
 
-describe('WeeklyGrid viewer-zone DST correctness (F2)', () => {
+describe('WeeklyGrid viewer-zone DST correctness', () => {
   // Week of Monday 2026-03-02 through Sunday 2026-03-08: US clocks spring
   // forward at 2026-03-08 07:00 UTC (2 a.m. America/New_York), which falls
   // exactly at the start of that Sunday's Kyiv-anchored office hours
@@ -189,12 +174,12 @@ describe('WeeklyGrid viewer-zone DST correctness (F2)', () => {
 
   it('suppresses the shared secondary rail label for every row when the viewer zone shifts DST mid-week and Kyiv does not', () => {
     renderDstWeekGrid('America/New_York');
-    const railRows = screen.getAllByRole('rowheader');
-    expect(railRows.length).toBeGreaterThan(0);
-    for (const row of railRows) {
+    const railCells = getRailCells();
+    expect(railCells.length).toBeGreaterThan(0);
+    for (const cell of railCells) {
       // Exactly the primary Kyiv label -- never a second, potentially-wrong
       // "one value fits all seven columns" viewer-local label.
-      expect(row.querySelectorAll('span')).toHaveLength(1);
+      expect(cell.querySelectorAll('span')).toHaveLength(1);
     }
   });
 
@@ -203,10 +188,42 @@ describe('WeeklyGrid viewer-zone DST correctness (F2)', () => {
     // Sunday of March) hasn't happened yet either -- Kyiv and Berlin stay
     // at a constant relative offset all week, so the shared label is valid.
     renderDstWeekGrid('Europe/Berlin');
-    const railRows = screen.getAllByRole('rowheader');
-    for (const row of railRows) {
-      expect(row.querySelectorAll('span')).toHaveLength(2);
+    const railCells = getRailCells();
+    for (const cell of railCells) {
+      expect(cell.querySelectorAll('span')).toHaveLength(2);
     }
+  });
+});
+
+describe('WeeklyGrid Today column', () => {
+  it('gives the Today header and the Today body tint the exact same grid column', () => {
+    render(
+      <WeeklyGrid
+        roomName="Copenhagen"
+        schedule={{ roomId: 'room-1', weekStartUtc, weekEndUtc, bookings: [] }}
+        userTimeZone="Europe/Berlin"
+        selectedSlotStart={null}
+        onSelectSlot={() => {}}
+        onSelectBooking={() => {}}
+        now="2026-06-03T10:00:00.000Z"
+      />,
+    );
+    const region = getGridRegion();
+    const todayHeader = within(region).getByText('Wed', { selector: 'span' }).closest('div')!;
+    const tint = region.querySelector('[aria-hidden="true"].bg-today-bg') as HTMLElement;
+    expect(tint).not.toBeNull();
+    // Same literal grid-column index -- not two independently computed
+    // widths that happen to match, the header and the tint are placed by
+    // the same coordinate.
+    expect(tint.style.gridColumn).toBe(todayHeader.style.gridColumn);
+    // Spans from the first body row to the last -- a continuous column,
+    // not a partial strip.
+    expect(tint.style.gridRow).toBe('2 / 22');
+  });
+
+  it('renders no Today tint when the visible week does not contain today', () => {
+    renderGrid(null, 'Europe/Berlin');
+    expect(getGridRegion().querySelector('[aria-hidden="true"].bg-today-bg')).toBeNull();
   });
 });
 
@@ -253,7 +270,7 @@ describe('WeeklyGrid mobile day chips', () => {
     expect(current[0]).toHaveTextContent('3');
   });
 
-  it('scrolls the day-columns table when a chip is tapped', async () => {
+  it('scrolls the shared grid container when a chip is tapped', async () => {
     renderGrid(null);
     const scrollSpy = jest.spyOn(Element.prototype, 'scrollTo').mockImplementation(() => {});
     const user = userEvent.setup();

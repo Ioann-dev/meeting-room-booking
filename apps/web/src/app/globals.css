@@ -1,77 +1,121 @@
 @import 'tailwindcss';
 
 /*
- * Design tokens for a restrained, professional B2B interface: warm-neutral
- * slate surfaces with a single deliberate teal accent reserved for primary
- * actions and focus states. Deliberately not the default Tailwind
- * indigo/purple scale.
+ * Design tokens for a bright, colorful premium B2B scheduling product.
+ * Indigo (`primary`) is the system's principal interactive accent (buttons,
+ * links, active nav, focus rings); teal is reserved specifically for "this
+ * is your booking" emphasis on the calendar, not general UI chrome. Booking
+ * events themselves draw from a distinct, deliberately colorful 7-hue
+ * palette (see `event-palette.ts`) so the calendar itself -- not just the
+ * chrome around it -- reads as a modern, vivid scheduling product.
+ *
+ * All existing `--color-accent*` names are kept as aliases onto the new
+ * `--color-primary*` tokens (Tailwind v4 resolves a theme variable whose
+ * value is itself `var(...)`), so any call site still spelled `bg-accent`/
+ * `text-accent-strong`/`bg-accent-tint` automatically renders in the new
+ * indigo without needing to be individually touched.
  */
 @theme {
-  /* Surfaces: a five-step tonal ladder (canvas -> muted -> surface -> hover
-     -> accent-tint) rather than the previous two-tone canvas/surface pair,
-     so dense chrome (sticky headers, rails, toolbars) can sit one step
-     above the page without introducing a border or shadow to do it. */
-  --color-canvas: #f6f7f7;
-  --color-surface-muted: #fbfbfb;
+  /* Surfaces: brighter than the previous warm-neutral system -- a cool,
+     slightly blue-tinted white/near-white ladder instead of a warm gray one. */
+  --color-canvas: #f7f8fc;
   --color-surface: #ffffff;
-  --color-surface-hover: #eef0f0;
+  --color-surface-soft: #f2f4f8;
+  --color-surface-hover: #eef1f7;
+  /* Aliases: every existing `bg-surface-muted` call site (sticky grid/day
+     headers, panel backgrounds) reads as `surface-soft` under the hood. */
+  --color-surface-muted: var(--color-surface-soft);
 
-  /* Ink (warm-neutral slate, not pure blue-gray). ink-subtle and
-     ink-faint are darkened from their original values: measured against
-     both `surface` and `canvas`, the original ink-faint (#99a1ab) failed
-     WCAG AA for normal text (~2.6:1, needs 4.5:1) and is used as real
-     content in several places (booking-block time ranges, My Bookings'
-     "Cancelled" indicator, notification timestamps), not just decoration.
-     The original ink-subtle (#6b7480) passed but with almost no margin
-     (~4.7:1) -- too little room to keep ink-faint visibly lighter while
-     also passing on its own, so both were re-picked together rather than
-     patching ink-faint in isolation. New values: ink-subtle ~5.25-5.6:1,
-     ink-faint ~4.4-5.1:1, verified against both backgrounds. */
-  --color-ink: #12181f;
-  --color-ink-muted: #3e4750;
-  --color-ink-subtle: #606873;
-  --color-ink-faint: #686e76;
+  /* Ink: three tiers (was four) -- ink / ink-secondary / ink-muted --
+     matching the brief's own reduced hierarchy. `ink-muted` is darkened
+     two steps from the brief's literal #747B89 (~4.25:1 on white, fails
+     WCAG AA's 4.5:1 floor for normal text): an initial #6b7280 pass
+     (~4.84:1 on white) still fell under 4.5:1 (~4.39:1) against the
+     `surface-soft` sticky headers it also sits on, so it moved to #5f6673
+     (~5.78:1 on white, ~5.25:1 on surface-soft) to clear both real
+     backgrounds with margin, per the brief's own instruction to adjust
+     minimally for compliance. `ink-faint` is kept as an alias onto it
+     rather than deleted, since several existing call sites (timestamps,
+     the past-tense "Cancelled" indicator) still reference the old
+     four-tier name.
+  */
+  --color-ink: #17181c;
+  --color-ink-secondary: #4f5563;
+  --color-ink-muted: #5f6673;
+  --color-ink-subtle: var(--color-ink-secondary);
+  --color-ink-faint: var(--color-ink-muted);
 
   /* Borders */
-  --color-border: #dfe3e6;
-  --color-border-strong: #c3c9cf;
+  --color-border: #e2e6ee;
+  --color-border-strong: #ced4df;
 
-  /* Accent */
-  --color-accent: #0e7c7b;
-  --color-accent-strong: #0a5f5e;
-  --color-accent-tint: #e4f2f1;
+  /* Primary: indigo, the system's principal accent. */
+  --color-primary: #5b5ce2;
+  --color-primary-hover: #4c4dd3;
+  --color-primary-active: #4142c4;
+  --color-primary-soft: #ececff;
+  --color-accent: var(--color-primary);
+  --color-accent-strong: var(--color-primary-hover);
+  --color-accent-tint: var(--color-primary-soft);
+
+  /* Teal: reserved specifically for "your booking" ownership emphasis on
+     the calendar -- never spent on ordinary UI chrome (that's primary's
+     job), so its rarity keeps doing the same signalling work Signal Teal
+     used to across the whole app, just narrowed to one meaningful place. */
+  --color-teal: #17bfa7;
+  --color-teal-hover: #109d8b;
+  --color-teal-soft: #dcf8f3;
+
+  /* Today (calendar-specific, distinct from primary so the "you are here"
+     column reads as its own signal even where primary is also in view). */
+  --color-today-bg: #f0f1ff;
+  --color-today-header-bg: #e5e7ff;
+  --color-today-border: #5b5ce2;
+  --color-current-time: #13a995;
 
   /* Semantic status */
-  --color-danger: #b3261e;
-  --color-danger-strong: #8f1e18;
-  --color-danger-tint: #fbeae9;
-  --color-warning: #8a5a00;
-  --color-warning-tint: #fbf1dc;
-  --color-success: #1e7b4d;
-  --color-success-tint: #e6f5ec;
+  --color-danger: #d83a52;
+  --color-danger-hover: #bd2f44;
+  --color-danger-active: #a7283a;
+  --color-danger-strong: var(--color-danger-hover);
+  --color-danger-tint: #fde8ec;
+  --color-danger-soft: var(--color-danger-tint);
+  --color-warning: #8f5c0e;
+  --color-warning-tint: #fff1d8;
+  --color-warning-soft: var(--color-warning-tint);
+  --color-success: #168a68;
+  --color-success-tint: #e0f5ee;
+  --color-success-soft: var(--color-success-tint);
   --color-info: #1d5b8f;
   --color-info-tint: #e7f1f9;
+
+  /* Calendar grid lines: distinct from the general `border` token so the
+     schedule grid's own line weight/color can be tuned independently of
+     card/dialog borders elsewhere. */
+  --color-grid-line: #e2e6ee;
+  --color-grid-line-soft: #edf0f5;
 
   /* Typography: system stack, no webfont dependency */
   --font-sans:
     -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, ui-sans-serif, system-ui, sans-serif;
 
-  /* Radii: small and consistent, never pill-shaped */
+  /* Radii */
   --radius-sm: 0.25rem;
-  --radius-md: 0.375rem;
-  --radius-lg: 0.625rem;
+  /* 9px: matches the brief's standard-control radius exactly (was 6px). */
+  --radius-md: 0.5625rem;
+  --radius-lg: 0.75rem;
+  --radius-xl: 1rem;
 
-  /* Shadows: reserved for genuinely elevated layers (menus, dialogs, toasts).
-     Three tiers now instead of two -- ambient stays the resting-card lift,
-     lg is reserved for floating chrome (popovers, dropdown menus) that
-     benefits from reading as slightly more detached than a dialog sitting
-     in the page's own flow, md remains the dialog/toast tier. */
-  --shadow-sm: 0 1px 2px 0 rgb(15 23 32 / 0.06);
-  --shadow-md: 0 8px 24px -4px rgb(15 23 32 / 0.16), 0 2px 6px -2px rgb(15 23 32 / 0.08);
-  --shadow-lg: 0 16px 40px -8px rgb(15 23 32 / 0.18), 0 4px 12px -2px rgb(15 23 32 / 0.1);
+  /* Shadows */
+  --shadow-sm: 0 1px 2px 0 rgb(20 24 40 / 0.05), 0 2px 6px 0 rgb(20 24 40 / 0.04);
+  --shadow-card-hover: 0 6px 18px 0 rgb(20 24 40 / 0.1);
+  --shadow-md: 0 20px 50px -8px rgb(20 24 40 / 0.18);
+  --shadow-lg: 0 10px 30px -6px rgb(20 24 40 / 0.14);
+  --shadow-primary: 0 2px 6px 0 rgb(91 92 226 / 0.22);
+  --shadow-primary-hover: 0 5px 14px 0 rgb(91 92 226 / 0.25);
 
   /* Focus ring */
-  --color-focus-ring: var(--color-accent);
+  --color-focus-ring: var(--color-primary);
 }
 
 @layer base {
@@ -102,8 +146,8 @@
   }
 
   ::selection {
-    background-color: var(--color-accent-tint);
-    color: var(--color-accent-strong);
+    background-color: var(--color-primary-soft);
+    color: var(--color-primary-active);
   }
 }
 

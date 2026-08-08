@@ -68,7 +68,7 @@ export function NotificationBell() {
           aria-haspopup="dialog"
           aria-expanded={open}
           aria-label={unreadCount > 0 ? `Notifications, ${unreadCount} unread` : 'Notifications'}
-          className="relative rounded-md p-3 text-ink-muted transition-colors hover:bg-surface-hover hover:text-ink md:p-2"
+          className="relative flex h-10 w-10 items-center justify-center rounded-md text-ink-muted transition-colors hover:bg-surface-hover hover:text-ink"
         >
           <BellIcon />
           {unreadCount > 0 && (

@@ -50,7 +50,7 @@ export function UserMenu({ user, onLoggedOut }: UserMenuProps) {
       </div>
       <div
         aria-hidden="true"
-        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-accent-tint text-xs font-semibold text-accent-strong"
+        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-accent-tint text-xs font-semibold text-accent-strong"
       >
         {initials(user.name)}
       </div>
@@ -59,7 +59,15 @@ export function UserMenu({ user, onLoggedOut }: UserMenuProps) {
         variant="ghost"
         loading={loggingOut}
         onClick={() => void handleLogout()}
-        className="px-2.5 py-1.5 text-xs"
+        // `!` (important) modifiers, not bare hover:bg-*/hover:text-* --
+        // cn() is a naive string join (no tailwind-merge conflict
+        // resolution), so a second unmarked hover:bg-* class here would
+        // compete with the ghost variant's own hover:bg-surface-hover
+        // purely by Tailwind's generated-CSS source order, not this JSX's
+        // order (see BookingBlock/SlotCell's today-tint history for this
+        // exact bug class). The important modifier makes this override
+        // deterministic instead of order-dependent.
+        className="px-2.5 py-1.5 text-xs hover:!bg-danger-tint hover:!text-danger"
       >
         Log out
       </Button>

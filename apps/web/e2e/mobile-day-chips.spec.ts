@@ -44,17 +44,33 @@ test.describe('Mobile day-chip navigation', () => {
     // single immediate read: scrollTo's `behavior: 'smooth'` animates over
     // a real duration, so the geometry only converges a short time after
     // the click, especially under parallel test-worker load.
+    //
+    // The day headers and their shared scroll wrapper are now one CSS
+    // Grid (see weekly-grid.tsx), not the old two-<table> layout -- the
+    // header for day `index` is the grid child in row 1 whose column isn't
+    // the rail's (column 1), found in the same left-to-right day order the
+    // chips use.
     await expect
       .poll(
         () =>
           page.evaluate((index) => {
-            const table = document.querySelectorAll('table')[1];
-            const th = table?.querySelectorAll('th[scope="col"]')[index] as HTMLElement | undefined;
-            const wrapper = th?.closest('.overflow-x-auto') as HTMLElement | undefined;
-            if (!th || !wrapper) {
+            const region = document.querySelector('[role="group"][aria-label^="Weekly schedule"]');
+            const wrapper = region?.parentElement as HTMLElement | undefined;
+            const dayHeaders = region
+              ? Array.from(region.children).filter(
+                  (el): el is HTMLElement =>
+                    el instanceof HTMLElement &&
+                    el.style.gridRow === '1' &&
+                    el.style.gridColumn !== '1',
+                )
+              : [];
+            const header = dayHeaders[index];
+            if (!header || !wrapper) {
               return null;
             }
-            return Math.abs(th.getBoundingClientRect().left - wrapper.getBoundingClientRect().left);
+            return Math.abs(
+              header.getBoundingClientRect().left - wrapper.getBoundingClientRect().left,
+            );
           }, targetIndex),
         { timeout: 2000 },
       )

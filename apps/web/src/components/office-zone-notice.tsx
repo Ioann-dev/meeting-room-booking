@@ -19,8 +19,8 @@ export function OfficeZoneNotice() {
   }
 
   return (
-    <div className="border-b border-border bg-surface-muted">
-      <div className="mx-auto flex w-full max-w-7xl items-center px-4 py-2 sm:px-6 lg:px-8">
+    <div className="border-b border-border bg-[#F5F6FF]">
+      <div className="mx-auto flex w-full max-w-7xl min-h-[40px] items-center px-4 py-2 sm:px-6 lg:px-8">
         <p role="status" className="flex items-center gap-1.5 text-xs text-ink-subtle">
           <svg
             viewBox="0 0 16 16"

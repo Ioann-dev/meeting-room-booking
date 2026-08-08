@@ -67,9 +67,13 @@ export function Dialog({
             // handling -- a bigger change to a primitive with existing
             // focus-return coverage that isn't worth the risk for
             // "nonessential" motion this late in the roadmap.
-            'inset-x-0 bottom-0 max-h-[85dvh] overflow-y-auto rounded-t-lg',
-            // sm and up: the original centered dialog, unchanged.
-            'sm:inset-auto sm:bottom-auto sm:left-1/2 sm:top-1/2 sm:w-[calc(100%-2rem)] sm:max-w-md sm:max-h-none sm:-translate-x-1/2 sm:-translate-y-1/2 sm:overflow-visible sm:rounded-lg',
+            'inset-x-0 bottom-0 max-h-[85dvh] overflow-y-auto rounded-t-xl',
+            // sm and up: the original centered dialog, unchanged. max-w
+            // widened from the default `md` (28rem/448px) to a fixed
+            // 520px -- within the 500-540px premium-dialog width band --
+            // and rounded-xl (16px) rather than rounded-lg (12px) to match
+            // the rest of the elevated-surface radius scale.
+            'sm:inset-auto sm:bottom-auto sm:left-1/2 sm:top-1/2 sm:max-h-none sm:w-[calc(100%-2rem)] sm:max-w-[520px] sm:-translate-x-1/2 sm:-translate-y-1/2 sm:overflow-visible sm:rounded-xl',
             className,
           )}
         >

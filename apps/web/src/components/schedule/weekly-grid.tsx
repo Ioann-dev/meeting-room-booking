@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import {
   getBookingPosition,
   getCurrentTimePosition,
@@ -31,6 +31,18 @@ interface WeeklyGridProps {
   /** UTC ISO instant for "now", resolved client-side only (see the schedule page). */
   now: string | null;
 }
+
+// The single canonical slot geometry every grid coordinate derives from:
+// the time rail, the horizontal row lines, booking block height, the
+// current-time indicator, and the Today-column tint all read these same
+// three CSS custom properties (never a second, independently-computed
+// value) so there is exactly one place that could ever drift, not several
+// that have to agree by convention.
+const GRID_VARS = {
+  '--rail-w': '4.75rem',
+  '--header-h': '4rem',
+  '--slot-h': '2.75rem',
+} as CSSProperties;
 
 export function WeeklyGrid({
   roomName,
@@ -64,34 +76,21 @@ export function WeeklyGrid({
   const currentTimePosition =
     now !== null ? getCurrentTimePosition(now, schedule.weekStartUtc) : null;
 
-  // Below `sm:` (see the day <th> width classes further down), each day
-  // column is resized to roughly one viewport-width "page" and the day
-  // columns table becomes a horizontally-swipeable single-day view; these
-  // three pieces of state/refs are purely that mobile mode's bookkeeping
-  // and have no effect at `sm:` and above, where all 7 columns render at
-  // their existing fixed width with no scroll tracking needed.
-  const dayScrollRef = useRef<HTMLDivElement>(null);
-  const dayHeaderRefs = useRef<(HTMLTableCellElement | null)[]>([]);
+  // Below `sm:` (see the day-header width classes further down), each day
+  // column is resized to roughly one viewport-width "page" so the grid
+  // becomes a horizontally-swipeable single-day view; these three pieces of
+  // state/refs are purely that mobile mode's bookkeeping and have no effect
+  // at `sm:` and above, where all 7 columns render at their existing fixed
+  // width with no scroll tracking needed.
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const dayHeaderRefs = useRef<(HTMLDivElement | null)[]>([]);
   const [activeDayIndex, setActiveDayIndex] = useState(todayDayIndex ?? 0);
 
-  // Measures the scroll wrapper's own available width (accounting for
-  // every ancestor's real padding, unlike a hand-derived `vw` calc that
-  // could silently drift if the page shell's own padding ever changes)
-  // and exposes it as a CSS custom property each mobile day <th> reads --
-  // an imperative style mutation, not React state, since this only ever
-  // drives layout and would otherwise re-render on every resize tick.
   useEffect(() => {
-    const wrapper = dayScrollRef.current;
+    const wrapper = scrollRef.current;
     if (!wrapper) {
       return;
     }
-    // Set an accurate width synchronously as soon as this effect runs:
-    // ResizeObserver's own first callback fires asynchronously (a frame
-    // later), and the scroll-to-today effect below runs in the same
-    // commit right after this one -- without a synchronous initial value
-    // here, it would compute scroll offsets against the 20rem CSS
-    // fallback instead of the real width, landing one column off
-    // whenever the real width differs from that fallback.
     wrapper.style.setProperty('--day-col-width', `${wrapper.getBoundingClientRect().width}px`);
     const resizeObserver = new ResizeObserver((entries) => {
       const width = entries[0]?.contentRect.width;
@@ -103,13 +102,8 @@ export function WeeklyGrid({
     return () => resizeObserver.disconnect();
   }, []);
 
-  // Keeps the active day chip in sync with whichever day column is
-  // actually scrolled into view -- bidirectional with scrollToDay below,
-  // which drives scroll position the other way. Day <th> elements keep a
-  // stable identity across week navigation (stable index keys), so this
-  // only needs to run once.
   useEffect(() => {
-    const wrapper = dayScrollRef.current;
+    const wrapper = scrollRef.current;
     if (!wrapper) {
       return;
     }
@@ -117,7 +111,7 @@ export function WeeklyGrid({
       (entries) => {
         let best: { index: number; ratio: number } | null = null;
         for (const entry of entries) {
-          const index = dayHeaderRefs.current.indexOf(entry.target as HTMLTableCellElement);
+          const index = dayHeaderRefs.current.indexOf(entry.target as HTMLDivElement);
           if (index === -1) {
             continue;
           }
@@ -139,15 +133,8 @@ export function WeeklyGrid({
     return () => observer.disconnect();
   }, []);
 
-  // Jumps to today's column (or Monday) whenever the displayed week
-  // changes -- otherwise switching weeks while scrolled to e.g. Friday
-  // would silently carry that scroll position into the new week. Also
-  // covers the initial mount, since `now` (and so `todayDayIndex`) only
-  // resolves client-side a tick after first render -- see the schedule
-  // page. A plain imperative scroll, not a state update: the
-  // IntersectionObserver above picks up the resulting active day itself.
   useEffect(() => {
-    const wrapper = dayScrollRef.current;
+    const wrapper = scrollRef.current;
     const target = dayHeaderRefs.current[todayDayIndex ?? 0];
     if (wrapper && target) {
       wrapper.scrollTo({ left: target.offsetLeft, behavior: 'auto' });
@@ -155,7 +142,7 @@ export function WeeklyGrid({
   }, [schedule.weekStartUtc, todayDayIndex]);
 
   function scrollToDay(index: number) {
-    const wrapper = dayScrollRef.current;
+    const wrapper = scrollRef.current;
     const target = dayHeaderRefs.current[index];
     if (wrapper && target) {
       wrapper.scrollTo({ left: target.offsetLeft, behavior: 'smooth' });
@@ -167,24 +154,18 @@ export function WeeklyGrid({
     return formatClock(parts.hour, parts.minute);
   }
 
-  // The time rail's primary label is always office-local (the grid's rows
-  // are Kyiv slot boundaries, per getBookingPosition), but booking blocks
-  // display their own time in the viewer's zone -- so without a second
-  // label here, a block reading "08:00" sitting in the row labeled "09:00"
-  // would look like a mismatch instead of the same instant in two zones.
-  //
   // A single shared rail column can only ever show *one* viewer-local value
   // per row, but the same Kyiv wall-clock slot can map to different viewer
   // offsets on different days of the displayed week -- most commonly the
   // viewer's own zone changing DST mid-week while Kyiv does not (or vice
   // versa). Showing one day's conversion as if it applied to every column
-  // would misrepresent the other days, so each row's secondary label is
-  // only shown when every day in the displayed week resolves to the same
+  // would misrepresent the other days, so the viewer-time label is only
+  // shown when every day in the displayed week resolves to the same
   // viewer-local wall time for that Kyiv slot; otherwise the row falls back
   // to Kyiv-only, and each booking block's own per-instant label (always
   // computed from its own real start/end, never this rail) remains the
   // correct source of truth for that day.
-  function railBrowserLabel(hour: number, minute: number): string | null {
+  function railViewerLabel(hour: number, minute: number): string | null {
     if (displayZone === OFFICE_TIMEZONE) {
       return null;
     }
@@ -208,10 +189,10 @@ export function WeeklyGrid({
     <div className="flex flex-col gap-2">
       {/* Day chips: mobile-only (sm:hidden) shortcut list, not a tablist --
           a plain row of buttons in normal tab order. Tapping one scrolls
-          the day-columns table to that day; the currently-intersecting
-          column (tracked above) is marked both visually (fill + weight,
-          never color alone) and via aria-current so the "clear active
-          day" requirement holds for assistive tech too. */}
+          the grid to that day; the currently-intersecting column (tracked
+          above) is marked both visually (fill + weight, never color alone)
+          and via aria-current so the "clear active day" requirement holds
+          for assistive tech too. */}
       <div role="group" aria-label="Select day" className="flex gap-1.5 overflow-x-auto sm:hidden">
         {days.map((day, dayIndex) => {
           const isActive = dayIndex === activeDayIndex;
@@ -225,8 +206,8 @@ export function WeeklyGrid({
               className={cn(
                 'flex min-h-11 min-w-11 flex-col items-center justify-center rounded-md px-2.5 py-1.5 transition-colors',
                 isActive
-                  ? 'bg-accent font-semibold text-white'
-                  : 'bg-canvas font-medium text-ink-muted hover:bg-border/40',
+                  ? 'bg-primary font-semibold text-white'
+                  : 'bg-surface-soft font-medium text-ink-secondary hover:bg-surface-hover',
               )}
             >
               <span className="text-[10px] uppercase leading-none tracking-wide">
@@ -238,7 +219,7 @@ export function WeeklyGrid({
                   aria-hidden="true"
                   className={cn(
                     'mt-1 h-1 w-1 rounded-full',
-                    isActive ? 'bg-white' : 'bg-accent-strong',
+                    isActive ? 'bg-white' : 'bg-primary-hover',
                   )}
                 />
               )}
@@ -247,273 +228,262 @@ export function WeeklyGrid({
         })}
       </div>
 
-      {/* A bounded max-height is what makes overflow-y actually scroll *inside*
-        this box instead of the whole page -- without it, the box only ever
-        grows to fit its content and the sticky day header/time rail never
-        engage, since there is nothing for them to stay pinned against.
-        //
-        The Kyiv rail lives in its own table, entirely outside the
-        horizontally-scrolling day-columns table, rather than as a
-        `position: sticky; left: 0` table cell inside one shared table.
-        Chromium has a real, reproducible bug where a sticky <th>/<td>'s
-        background does not reliably paint over a horizontally-scrolled
-        sibling cell's text -- confirmed here by testing an identical
-        isolated non-table sticky <div> (no bleed) against the sticky <th>
-        (bleeds, immune to isolation/clip-path/contain/z-index/GPU-layer
-        promotion). Taking the rail out of the horizontally-scrolled table
-        sidesteps the bug by construction: it never needs `left` stickiness
-        at all, since only the day-columns table (in the nested overflow-x
-        wrapper below) scrolls horizontally. Vertical `top` stickiness on
-        table cells is unaffected by this bug and is unchanged here -- and
-        since the rail table sits outside that wrapper, it stays visible
-        throughout the mobile single-day horizontal scroll too, with no
-        separate handling needed.
-        //
-        Both tables share the exact same per-row height unit (min-h-11/
-        max-h-11 md:min-h-8/md:max-h-8, the same constants BookingBlock and
-        SlotCell use) so their rows independently compute to identical
-        heights without needing to be the same physical table. */}
-      <div className="max-h-[70vh] overflow-y-auto overflow-x-hidden rounded-lg border border-border bg-surface">
-        {/* items-start: without it, flexbox's default align-items:stretch
-          forces both tables to the height of the taller one, and a
-          <table> stretched taller than its own content redistributes that
-          extra space across its rows -- exactly the kind of row-height
-          drift the two-table split must not introduce. Each table should
-          only ever be as tall as its own 20 rows independently compute to. */}
-        <div className="flex items-start">
-          {/* overflow-x-auto overflow-y-hidden here (never actually
-            scrollable, since this table's own width is fixed) matches the
-            day-columns wrapper's overflow declaration below. Verified
-            live: without it, this table's sticky <th> top-0 elements do
-            not track vertical scroll of the outer container at all (they
-            stay glued to their unscrolled position); with a matching
-            wrapper, both tables' sticky headers resolve their "nearest
-            scrolling ancestor" the same way and move in lockstep. */}
-          <div className="flex-none overflow-x-auto overflow-y-hidden">
-            <table className="w-16 border-collapse text-sm">
-              <caption className="sr-only">Kyiv office-hours time reference</caption>
-              <thead>
-                <tr>
-                  <th
-                    scope="col"
-                    className="sticky top-0 z-10 w-16 border-b border-r border-border bg-surface-muted p-0 text-left text-[11px] font-medium uppercase tracking-wide text-ink-subtle"
-                  >
-                    {/* min-h-14 matches the day-header table's own header row height
-                    exactly: p-2 (1rem vertical) + 3 leading-none text lines
-                    (11px + 14px + 11px) + 2 half-unit gaps (2px + 2px) = 56px =
-                    3.5rem. That table reserves space for its "Today" badge line
-                    on every header regardless of whether any day is today, so
-                    its header height is the same deterministic constant here
-                    rather than something that would need runtime measurement
-                    to track -- the same reserved budget comfortably fits the
-                    second "Your time" line added below, so this stays a
-                    zero-cost relabeling, not a size change. This sticky
-                    header is what carries the bold/faint row convention for
-                    a viewer scrolled past the page-level timezone banner or
-                    landing mid-grid: it's the one label that's on-screen at
-                    every scroll position, so it -- not the per-row cells --
-                    is where "which number is which zone" needs to live. */}
-                    <div className="flex min-h-14 flex-col justify-center gap-0.5 p-2 leading-none">
-                      <span>Kyiv</span>
-                      {displayZone !== OFFICE_TIMEZONE && (
-                        <span className="text-[10px] font-normal normal-case tracking-normal text-ink-faint">
-                          Your time
-                        </span>
-                      )}
-                    </div>
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {officeSlots.map((slot) => {
-                  const browserLabel = railBrowserLabel(slot.hour, slot.minute);
-                  return (
-                    <tr key={slot.rowIndex}>
-                      <th
-                        scope="row"
-                        // An explicit aria-label, with the two visible spans
-                        // hidden from the accessible tree, so a screen-reader
-                        // user gets the same Kyiv-vs-your-time distinction
-                        // the sticky rail header now carries visually --
-                        // without it, the two bare time strings read as one
-                        // ambiguous run, the same gap the visual bold/faint
-                        // convention alone had. Same technique BookingBlock
-                        // already uses for its own aria-label.
-                        aria-label={
-                          browserLabel !== null
-                            ? `${formatClock(slot.hour, slot.minute)} Kyiv time, ${browserLabel} your time`
-                            : `${formatClock(slot.hour, slot.minute)} Kyiv time`
-                        }
-                        className="sticky top-0 z-10 border-b border-r border-border bg-surface p-0 text-right text-xs font-normal text-ink-subtle"
-                      >
-                        {/* min-h/max-h live on this inner div, not the <th> itself:
-                        table cells don't reliably honor min-height/max-height
-                        as a row-sizing floor when there's no sibling cell (a
-                        normal, non-table-cell element like this one) also
-                        demanding that height -- alone in this single-column
-                        table, a height constraint on the <th> directly was
-                        silently ignored by the row-sizing algorithm. A plain
-                        block child's min-height is honored reliably, and that
-                        then drives the <th>'s (and so the row's) natural
-                        height the same way SlotCell/BookingBlock's own inner
-                        button already does. */}
-                        <div className="flex min-h-11 max-h-11 flex-col justify-center px-2 py-0.5 md:min-h-8 md:max-h-8">
-                          <span aria-hidden="true" className="tabular-nums block leading-none">
-                            {formatClock(slot.hour, slot.minute)}
-                          </span>
-                          {browserLabel !== null && (
-                            <span
-                              aria-hidden="true"
-                              className="tabular-nums block text-[10px] leading-none text-ink-faint"
-                            >
-                              {browserLabel}
-                            </span>
-                          )}
-                        </div>
-                      </th>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-          {/* relative: without it, a day <th>'s offsetLeft (read by
-            scrollToDay and the scroll-to-today effect above) resolves
-            against the nearest positioned ancestor -- which, absent this,
-            is <body> -- rather than against this wrapper's own scrolled
-            content origin, silently biasing every computed scroll target
-            by this wrapper's own offset from the page edge. */}
+      {/* Single scroll container, both axes -- the whole reason the rail and
+          the day columns are now guaranteed to align. Sticky `top`/`left`
+          items resolve their containing block against the nearest ancestor
+          with non-visible overflow; with two separate scroll containers
+          (one per axis) a corner cell needing both would resolve against
+          two different ancestors and the math gets fragile fast. One
+          container means one unambiguous answer for every sticky item, and
+          drops the old two-<table> split (and its Chromium sticky-paint
+          workaround, which was a table-border-collapse-specific bug that a
+          plain grid item was never going to hit in the first place). */}
+      <div
+        ref={scrollRef}
+        className="relative max-h-[70vh] overflow-auto rounded-[14px] border border-border bg-surface"
+      >
+        {/* This was a real <table> before; a plain grid of positioned <div>s
+            has no built-in row/column semantics to replace it with, and a
+            half-finished `role="grid"` (without the full row/columnheader/
+            gridcell hierarchy ARIA requires under it) is an axe violation,
+            not an accessibility improvement -- `aria-required-children` and
+            `aria-required-parent` both fire on an incomplete grid pattern.
+            `role="group"` plus a label carries the same information content
+            table roles gave for free (a named region) without claiming
+            interactive-grid keyboard semantics this component still doesn't
+            implement; every cell keeps its own accessible name below, same
+            as before. */}
+        <div
+          role="group"
+          // "week of", not "week starting" -- Playwright's getByLabel does
+          // substring matching, and "starting" collided with the booking
+          // form's real "Start" field label, making getByLabel('Start')
+          // ambiguous in the e2e suite.
+          aria-label={`Weekly schedule for ${roomName}, week of ${formatDayMonth(days[0].month, days[0].day)} ${days[0].year}`}
+          // w-max below `sm:`: the mobile single-day-scroll columns are
+          // fixed px tracks (`var(--day-col-width)`) that intentionally sum
+          // wider than the viewport. A block-level grid container's default
+          // `width: auto` fills only the *available* (viewport) width, not
+          // its own track layout -- so without `w-max` the container's own
+          // box stayed viewport-width while its tracks silently overflowed
+          // it, and every sticky rail cell (whose containing block is this
+          // grid container) stuck relative to that too-narrow box instead
+          // of the true scrolled content, breaking the rail during the
+          // mobile per-day horizontal scroll. `sm:w-full` restores the
+          // unchanged desktop sizing, whose `1fr` tracks never overflow.
+          className="relative grid w-max grid-cols-[var(--rail-w)_repeat(7,var(--day-col-width,20rem))] bg-grid-line-soft sm:w-full sm:grid-cols-[var(--rail-w)_repeat(7,minmax(6.5rem,1fr))]"
+          style={{
+            ...GRID_VARS,
+            gridTemplateRows: `var(--header-h) repeat(${totalRows}, var(--slot-h))`,
+            gap: '1px',
+          }}
+        >
+          {/* Corner cell: sticky on both axes, so it always sits above
+              whichever day column has scrolled underneath it. */}
           <div
-            ref={dayScrollRef}
-            className="relative min-w-0 flex-1 overflow-x-auto overflow-y-hidden"
+            className="sticky left-0 top-0 z-30 flex flex-col justify-center gap-0.5 border-b-2 border-grid-line bg-surface-soft px-2 py-2 text-left leading-none"
+            style={{ gridColumn: 1, gridRow: 1 }}
           >
-            <table className="w-full min-w-[42rem] table-fixed border-collapse text-sm">
-              <caption className="sr-only">
-                Weekly schedule for {roomName}, week starting{' '}
-                {formatDayMonth(days[0].month, days[0].day)} {days[0].year}
-              </caption>
-              <thead>
-                <tr>
-                  {days.map((day, dayIndex) => (
-                    <th
-                      key={dayIndex}
-                      ref={(el) => {
-                        dayHeaderRefs.current[dayIndex] = el;
-                      }}
-                      scope="col"
-                      className={cn(
-                        // Below sm: each column is resized to ~one viewport
-                        // width (via the ResizeObserver-driven custom
-                        // property above) so the day-columns table becomes
-                        // a horizontally-swipeable single-day view; at sm:
-                        // and above this reverts to the existing fixed
-                        // narrow-column desktop density unchanged.
-                        //
-                        // The background is a ternary, not two co-applied
-                        // `bg-*` classes: `cn()` is a plain string join with
-                        // no same-property conflict resolution (no
-                        // tailwind-merge), so two simultaneous `bg-*`
-                        // utilities are decided by the generated stylesheet's
-                        // own rule order, not by which class appears later
-                        // in this string -- silently dropping the intended
-                        // today-column tint. Making the two backgrounds
-                        // mutually exclusive removes the conflict by
-                        // construction instead of depending on class order.
-                        'sticky top-0 z-10 w-[var(--day-col-width,20rem)] min-w-[var(--day-col-width,20rem)] border-b border-border p-2 text-left align-top sm:w-auto sm:min-w-[6.5rem]',
-                        dayIndex === todayDayIndex ? 'bg-accent-tint' : 'bg-surface-muted',
-                      )}
-                    >
-                      <span className="block text-[11px] font-medium uppercase tracking-wide text-ink-subtle leading-none">
-                        {WEEKDAY_LABELS[day.weekday - 1]}
-                      </span>
-                      <span className="tabular-nums mt-0.5 block text-sm font-semibold uppercase leading-none text-ink">
-                        {formatDayMonth(day.month, day.day)}
-                      </span>
-                      {/* Always rendered (not just when this is today) and
-                        deterministically leading-none/mt-0.5, so this row's
-                        height never depends on whether any day in the week
-                        is "today" -- the rail table's header (min-h-14)
-                        matches that same fixed height without needing to
-                        measure this table at runtime. */}
-                      <span
-                        aria-hidden={dayIndex !== todayDayIndex}
-                        className={cn(
-                          'mt-0.5 block text-[11px] font-semibold leading-none text-accent-strong',
-                          dayIndex === todayDayIndex ? 'visible' : 'invisible',
-                        )}
-                      >
-                        Today
-                      </span>
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {officeSlots.map((slot) => (
-                  <tr key={slot.rowIndex}>
-                    {days.map((day, dayIndex) => {
-                      const cell = dayColumns[dayIndex]![slot.rowIndex]!;
-                      if (cell.kind === 'covered') {
-                        return null;
-                      }
-
-                      const isCurrentDay =
-                        currentTimePosition !== null && currentTimePosition.dayIndex === dayIndex;
-
-                      if (cell.kind === 'booking') {
-                        const fraction =
-                          isCurrentDay &&
-                          currentTimePosition.rowOffset >= cell.rowIndex &&
-                          currentTimePosition.rowOffset < cell.rowIndex + cell.rowSpan
-                            ? (currentTimePosition.rowOffset - cell.rowIndex) / cell.rowSpan
-                            : undefined;
-
-                        return (
-                          <BookingBlock
-                            key={dayIndex}
-                            booking={cell.booking}
-                            rowSpan={cell.rowSpan}
-                            startLabel={bookingClockLabel(cell.booking.startAt)}
-                            endLabel={bookingClockLabel(cell.booking.endAt)}
-                            onSelect={onSelectBooking}
-                            currentTimeFraction={fraction}
-                          />
-                        );
-                      }
-
-                      const slotInstant = zonedWallTimeToUtc(
-                        {
-                          year: day.year,
-                          month: day.month,
-                          day: day.day,
-                          hour: slot.hour,
-                          minute: slot.minute,
-                        },
-                        OFFICE_TIMEZONE,
-                      );
-                      const isPast = now !== null && slotInstant < now;
-                      const isSelected = selectedSlotStart === slotInstant;
-                      const fraction =
-                        isCurrentDay && Math.floor(currentTimePosition.rowOffset) === cell.rowIndex
-                          ? currentTimePosition.rowOffset - cell.rowIndex
-                          : undefined;
-
-                      return (
-                        <SlotCell
-                          key={dayIndex}
-                          isPast={isPast}
-                          isSelected={isSelected}
-                          onSelect={isPast ? undefined : () => onSelectSlot(slotInstant)}
-                          label={`${formatClock(slot.hour, slot.minute)} on ${WEEKDAY_LABELS[day.weekday - 1]} ${formatDayMonth(day.month, day.day)}`}
-                          currentTimeFraction={fraction}
-                        />
-                      );
-                    })}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            <span className="text-[11px] font-bold uppercase tracking-[0.04em] text-ink-secondary">
+              Kyiv
+            </span>
+            {displayZone !== OFFICE_TIMEZONE && (
+              <span className="text-[10px] font-medium normal-case tracking-normal text-ink-muted">
+                Your time
+              </span>
+            )}
           </div>
+
+          {/* Day headers: sticky top-0 only -- they scroll horizontally
+              with their column, which is exactly what keeps a header lined
+              up with its own body cells regardless of scroll position. */}
+          {days.map((day, dayIndex) => {
+            const isToday = dayIndex === todayDayIndex;
+            return (
+              <div
+                key={dayIndex}
+                ref={(el) => {
+                  dayHeaderRefs.current[dayIndex] = el;
+                }}
+                className={cn(
+                  'sticky top-0 z-20 flex flex-col justify-center border-b-2 border-grid-line px-2 py-2 text-left',
+                  isToday ? 'bg-today-header-bg' : 'bg-surface-soft',
+                )}
+                style={{ gridColumn: dayIndex + 2, gridRow: 1 }}
+              >
+                <span
+                  className={cn(
+                    'block text-[11px] font-semibold uppercase leading-none tracking-[0.04em]',
+                    isToday ? 'text-primary-active' : 'text-ink-muted',
+                  )}
+                >
+                  {WEEKDAY_LABELS[day.weekday - 1]}
+                </span>
+                <span
+                  className={cn(
+                    'tabular-nums mt-1 block text-sm font-bold leading-none',
+                    isToday ? 'text-primary-active' : 'text-ink',
+                  )}
+                >
+                  {formatDayMonth(day.month, day.day)}
+                </span>
+                {/* Always rendered (not just when this is today) and
+                    deterministically positioned, so the header row's height
+                    never depends on whether any day in the week is "today". */}
+                <span
+                  aria-hidden={!isToday}
+                  className={cn(
+                    'mt-1 block text-[11px] font-bold leading-none text-primary-hover',
+                    isToday ? 'visible' : 'invisible',
+                  )}
+                >
+                  Today
+                </span>
+              </div>
+            );
+          })}
+
+          {/* Today column tint: one grid item spanning every body row of
+              that column, rendered before the interactive cells so it sits
+              beneath them in paint order -- an empty slot cell has no
+              background of its own at rest, so the tint shows straight
+              through it, while a booking's own opaque color (or a past/
+              selected cell's own background) paints over it. Continuous by
+              construction: it is the exact same grid column as the header
+              above it and the exact same row span as the grid body, not a
+              separately-measured approximation. */}
+          {todayDayIndex !== null && (
+            <div
+              aria-hidden="true"
+              className="pointer-events-none bg-today-bg"
+              style={{ gridColumn: todayDayIndex + 2, gridRow: `2 / ${totalRows + 2}` }}
+            />
+          )}
+
+          {/* Rail labels: sticky left-0 only -- vertical scroll carries them
+              with the body rows, horizontal scroll (mobile single-day view)
+              pins them to the left edge. */}
+          {officeSlots.map((slot) => {
+            const viewerLabel = railViewerLabel(slot.hour, slot.minute);
+            const primaryLabel = viewerLabel ?? formatClock(slot.hour, slot.minute);
+            const secondaryLabel =
+              viewerLabel !== null ? formatClock(slot.hour, slot.minute) : null;
+            return (
+              <div
+                key={slot.rowIndex}
+                // role="group": axe's aria-prohibited-attr rule disallows
+                // aria-label on a role-less <div> (no implicit ARIA
+                // semantics to attach a name to) -- group is the same
+                // "named region with no other semantics" role the grid and
+                // day-chip containers already use.
+                role="group"
+                // An explicit aria-label, with the visible spans hidden from
+                // the accessible tree, so a screen-reader user gets the same
+                // viewer-vs-Kyiv distinction the visual bold/faint pairing
+                // carries -- without it the two bare time strings would read
+                // as one ambiguous run. Same technique BookingBlock uses.
+                aria-label={
+                  secondaryLabel !== null
+                    ? `${primaryLabel} your time, ${secondaryLabel} Kyiv time`
+                    : `${primaryLabel} Kyiv time`
+                }
+                className="sticky left-0 z-10 flex flex-col justify-center bg-surface py-0.5 pl-2 pr-2.5 text-right leading-none sm:pr-3"
+                style={{ gridColumn: 1, gridRow: slot.rowIndex + 2 }}
+              >
+                <span
+                  aria-hidden="true"
+                  className="tabular-nums block text-[13px] font-bold leading-none text-[#343945]"
+                >
+                  {primaryLabel}
+                </span>
+                {secondaryLabel !== null && (
+                  <span
+                    aria-hidden="true"
+                    // text-ink-muted (#6b7280, 4.836:1 on white), not the
+                    // brief's literal #9298A6 -- #9298A6 measures 2.89:1 on
+                    // this row's white background and fails WCAG AA's
+                    // 4.5:1 minimum for normal-weight text this small (see
+                    // globals.css's own ink-muted/warning adjustments for
+                    // the same reasoning).
+                    className="tabular-nums mt-0.5 block text-[10.5px] font-medium leading-none text-ink-muted"
+                  >
+                    {secondaryLabel}
+                  </span>
+                )}
+              </div>
+            );
+          })}
+
+          {/* Body cells: one grid item per free slot or booking (a booking
+              spans `rowSpan` row-tracks via `grid-row`, absorbing the
+              tracks' own 1px gaps as part of its own box automatically --
+              no manual N*unit+(N-1)*1px border-compensation arithmetic
+              needed, the grid algorithm's own span math is exact by
+              construction). "covered" rows render nothing, same as before. */}
+          {days.map((day, dayIndex) =>
+            officeSlots.map((slot) => {
+              const cell = dayColumns[dayIndex]![slot.rowIndex]!;
+              if (cell.kind === 'covered') {
+                return null;
+              }
+
+              const isCurrentDay =
+                currentTimePosition !== null && currentTimePosition.dayIndex === dayIndex;
+
+              if (cell.kind === 'booking') {
+                const fraction =
+                  isCurrentDay &&
+                  currentTimePosition.rowOffset >= cell.rowIndex &&
+                  currentTimePosition.rowOffset < cell.rowIndex + cell.rowSpan
+                    ? (currentTimePosition.rowOffset - cell.rowIndex) / cell.rowSpan
+                    : undefined;
+
+                return (
+                  <BookingBlock
+                    key={`${dayIndex}-${slot.rowIndex}`}
+                    booking={cell.booking}
+                    rowSpan={cell.rowSpan}
+                    startLabel={bookingClockLabel(cell.booking.startAt)}
+                    endLabel={bookingClockLabel(cell.booking.endAt)}
+                    onSelect={onSelectBooking}
+                    currentTimeFraction={fraction}
+                    gridColumn={dayIndex + 2}
+                    gridRowStart={cell.rowIndex + 2}
+                  />
+                );
+              }
+
+              const slotInstant = zonedWallTimeToUtc(
+                {
+                  year: day.year,
+                  month: day.month,
+                  day: day.day,
+                  hour: slot.hour,
+                  minute: slot.minute,
+                },
+                OFFICE_TIMEZONE,
+              );
+              const isPast = now !== null && slotInstant < now;
+              const isSelected = selectedSlotStart === slotInstant;
+              const fraction =
+                isCurrentDay && Math.floor(currentTimePosition.rowOffset) === cell.rowIndex
+                  ? currentTimePosition.rowOffset - cell.rowIndex
+                  : undefined;
+
+              return (
+                <SlotCell
+                  key={`${dayIndex}-${slot.rowIndex}`}
+                  isPast={isPast}
+                  isSelected={isSelected}
+                  onSelect={isPast ? undefined : () => onSelectSlot(slotInstant)}
+                  label={`${formatClock(slot.hour, slot.minute)} on ${WEEKDAY_LABELS[day.weekday - 1]} ${formatDayMonth(day.month, day.day)}`}
+                  currentTimeFraction={fraction}
+                  gridColumn={dayIndex + 2}
+                  gridRow={slot.rowIndex + 2}
+                />
+              );
+            }),
+          )}
         </div>
       </div>
     </div>

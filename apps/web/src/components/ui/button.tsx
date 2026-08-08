@@ -10,10 +10,11 @@ export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 }
 
 const VARIANT_CLASSES: Record<ButtonVariant, string> = {
-  primary: 'bg-accent text-white hover:bg-accent-strong',
+  primary:
+    'bg-accent text-white shadow-primary hover:bg-accent-strong hover:shadow-primary-hover active:bg-primary-active',
   secondary:
-    'border border-border bg-surface text-ink hover:border-border-strong hover:bg-surface-hover',
-  destructive: 'bg-danger text-white hover:bg-danger-strong',
+    'border border-border bg-surface text-ink shadow-sm hover:border-border-strong hover:bg-surface-hover',
+  destructive: 'bg-danger text-white shadow-sm hover:bg-danger-strong active:bg-danger-active',
   ghost: 'text-ink-muted hover:bg-surface-hover hover:text-ink',
 };
 
