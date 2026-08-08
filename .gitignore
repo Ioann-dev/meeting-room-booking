@@ -13,6 +13,12 @@ apps/api/generated
 **/test-results
 **/playwright-report
 **/blob-report
+**/screenshots
+**/videos
+**/traces
+
+# Playwright saved auth/session state (see e2e/global-setup.ts)
+**/e2e/.auth/
 
 # env files (keep committed examples)
 **/.env
@@ -26,3 +32,4 @@ apps/api/generated
 # local AI tooling state (not part of the shipped project)
 .claude/
 .serena/
+.impeccable/
